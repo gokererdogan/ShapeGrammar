@@ -12,10 +12,11 @@ import time
 from copy import copy
 
 class MCMCSample:
-    def __init__(self, index, state, posterior):
+    def __init__(self, index, state, posterior, move_name):
         self.index = index
         self.state = state
         self.posterior = posterior
+        self.move_name = move_name
         
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -27,9 +28,9 @@ class MCMCSample:
         return not self.__eq__(other)
     
     def __repr__(self):
-        return 'Sample ' + repr(self.index) + ':' + repr(self.state) + ' (' + repr(self.posterior) + ')'
+        return 'Sample {0:d}: {1:s} ({2:G})-({3:s})'.format(self.index, self.state, self.posterior, self.move_name)
     def __str__(self):
-        return 'Sample ' + repr(self.index) + ':' + repr(self.state) + ' (' + repr(self.posterior) + ')'
+        return 'Sample {0:d}: {1:s} ({2:G})-({3:s})'.format(self.index, self.state, self.posterior, self.move_name)
     
 class MCMCRunResults:
     """
@@ -97,10 +98,15 @@ class MCMCSampler:
             verbose: if True prints progress info as sampling goes on
             burn_in: number of iterations after which we start taking samples
             thinning_period: number of iterations in one thinning period. we take
-                             one sample from each period to decrease dependence 
-                             between samples
+                            one sample from each period to decrease dependence 
+                            between samples
             results_folder: folder to save results
             save_results: if True results are saved into a file named info_time.mcmc
+            random_move: move used for proposing a new state is chosen randomly if True.
+                            if False tries all moves on current state (until one is accepted)
+                            in the order they are given in initial_state.moves
+            move_probabilities: used if random_move is True. this a list of probabilities
+                             for each move. Available moves are given in initial_state.moves
         """
         self.state = initial_state
         self.sampler_params = sampler_params
@@ -111,6 +117,9 @@ class MCMCSampler:
         self.verbose = sampler_params['verbose']
         self.burn_in = sampler_params['burn_in']
         self.thinning_period = sampler_params['thinning_period']
+        self.random_move = sampler_params['random_move']
+        if self.random_move is True:
+            self.move_probabilities = sampler_params['move_probabilities']
         self.best_samples = []
         self.best_probs = []
         self.samples = []
@@ -122,7 +131,7 @@ class MCMCSampler:
         results = MCMCRunResults(self.info, self.state.__class__, self.sampler_params)
         for i in range(self.run_count):
             # reinitialize starting state for next run
-            next_initial_state = self.state.propose_state()
+            next_initial_state = self.state.moves[0]()
         
             results.initial_states[i] = deepcopy(self.state)
             samp, best_samp, acceptance_rate = self._run_once()
@@ -147,25 +156,39 @@ class MCMCSampler:
         del self.best_samples[:]
         del self.samples[:]
         
+        move_count = len(self.state.moves)
+        current_move = 0
+        last_move = 0
         accepted = 0
         for i in range(self.iter_count):
             
             if i > self.burn_in and i%self.thinning_period == 0:
-                self.samples.append(MCMCSample(i, self.state, self.state.prior*self.state.likelihood))
+                self.samples.append(MCMCSample(i, self.state, self.state.prior*self.state.likelihood, self.state.moves[last_move].__name__))
                 
             if self.verbose:
                 if i%20 == 0:
                     print "Drawing sample " + repr(i)
-            proposed_state = self.state.propose_state()
-            acceptance_prob = self.state.acceptance_prob(proposed_state)
+                    
+            if self.random_move is True:
+                chosen_move = np.random.choice(move_count, p=self.move_probabilities)
+            else:
+                chosen_move = current_move
+            
+            proposed_state, acceptance_prob = self.state.moves[chosen_move]()
+            
             if np.random.rand() < acceptance_prob:
+                # record the move that got us here
+                last_move = chosen_move
+                move_name = self.state.moves[last_move].__name__
+                # if accepted, we should start from the first move in next iteration
+                current_move = 0
                 accepted = accepted + 1
                 self.state = proposed_state
                 if i > self.burn_in:
                     posterior = proposed_state.prior * proposed_state.likelihood
                     if  len(self.best_samples) < self.keep_top_n or posterior > np.min(self.best_probs):
                         # add this sample if we don't have it already in best samples
-                        sample = MCMCSample(i, self.state, posterior)
+                        sample = MCMCSample(i, self.state, posterior, move_name)
                         if sample not in self.best_samples:
                             print '\tAdding sample to best samples'
                             # find the index to which we need to insert this sample
@@ -181,6 +204,9 @@ class MCMCSampler:
                             if len(self.best_samples) > self.keep_top_n:
                                 self.best_probs.pop()
                                 self.best_samples.pop()
+                else:
+                    # if not accepted, choose next move
+                    current_move = (current_move + 1) % move_count
         
         acceptance_rate = float(accepted) / self.iter_count
         return self.samples, self.best_samples, acceptance_rate
@@ -232,48 +258,7 @@ if __name__ == '__main__':
 #         
 #     forward_model._view(best_samples[0].state)
 #       
-#     # AoMR Simple Shape Grammar, visual condition
-#     spatial_model = AoMRSimpleSpatialModel()
-#     forward_model = VisionForwardModel()
-#     data = np.load('data/visual/16.npy')
-#     state_params = {'b': 750.0}
-#     init_state = AoMRSimpleShapeState(forward_model, data, state_params, spatial_model)
-#     sampler_params = {'iters' : 2000, 
-#                       'keep_top_n' : 20, 
-#                       'burn_in' : 0,
-#                       'thinning_period' : 100,
-#                       'verbose': True}
-#     ms = MCMCSampler(sampler_params, init_state)
-#     samples, best_samples = ms.run()
-#      
-#     print 'Samples:'
-#     for sample in samples:
-#         print '\t' + repr(sample)
-#          
-#     print 'Best Samples:'
-#     for sample in best_samples:
-#         print '\t' + repr(sample)
-#          
-#     forward_model._view(best_samples[0].state)
+
        
       
-#     # Rational Rules model learning
-#     data = np.array([[0, 0, 0, 1, 1], [0, 1, 0, 1, 1], [0, 1, 0, 0, 1], [0, 0, 1, 0, 1],
-#             [1, 0, 0, 0, 1], [0, 0, 1, 1, 0], [1, 0, 0, 1, 0], [1, 1, 1, 0, 0],
-#             [1, 1, 1, 1, 0]])
-#     state_params = {'b': 6.0}
-#     init_state = RationalRulesState(data, state_params)
-#     sampler_params ={'info' : 'Rational Rules', 
-#                  'runs' : 2,
-#                  'iters' : 100, 
-#                  'keep_top_n' : 2, 
-#                  'burn_in' : 20,
-#                  'thinning_period' : 10,
-#                  'results_folder' : './',
-#                  'save_results' : True,
-#                  'verbose': True}
-#     
-#     ms = MCMCSampler(sampler_params, init_state)
-#     results = ms.run()
-#     print(results)
     

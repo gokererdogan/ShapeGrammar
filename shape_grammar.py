@@ -8,9 +8,11 @@ shape spatial model.
 Last Update: May 14, 2013
 '''
 
-from pcfg_tree import *
-from vision_forward_model import *
-from haptics_forward_model import *
+from pcfg_tree import PCFGTree
+from treelib import Tree
+from vision_forward_model import VisionForwardModel
+from haptics_forward_model import HapticsForwardModel
+import numpy as np
 import matplotlib.pyplot as pl
 
 class SpatialModel:
@@ -59,7 +61,7 @@ class ShapeGrammarState(PCFGTree):
     # some grammars (where branching factor is high) the tree grows
     # without bound
     MAXIMUM_DEPTH = 3
-    def __init__(self, grammar, forward_model, data, ll_params, spatial_model, initial_tree=None):
+    def __init__(self, grammar=None, forward_model=None, data=None, ll_params=None, spatial_model=None, initial_tree=None):
         """
         Initializes ShapeGrammarState
         grammar: Probabilistic context free shape grammar definition. PCFG instance.
@@ -81,26 +83,51 @@ class ShapeGrammarState(PCFGTree):
         else:
             self.tree = initial_tree
             
+        # if a subclass does not define moves, we define it here and add subtree move
+        if hasattr(self, 'moves') is False:
+            self.moves = [self.subtree_proposal]
+            
             
         # IMPORTANT: we call base class init after we initialize spatial model, 
         # because prior, ll, deriv_prob calculation is done in init and
         # spatial_model should be available to calculate them
-        PCFGTree.__init__(self, grammar, data, ll_params, self.tree)
+        PCFGTree.__init__(self, grammar=grammar, data=data, ll_params=ll_params, initial_tree=self.tree)
         
-    def propose_state(self):
+    def subtree_proposal(self):
         """
-        Proposes a new state based on current state
-        Uses base class PCFGTree's propose_state to generate new
-        tree, then samples positions for new added parts
+        Proposes a new state based on current state using subtree move
+        Uses base class PCFGTree's subtree_proposal_propose_tree to generate 
+        new tree, then samples positions for new added parts
         """
-        proposed_tree = PCFGTree.propose_tree(self)
+        pcfg_proposal = PCFGTree.subtree_proposal_propose_tree(self)
         # get a new spatial model based on proposed tree
-        proposed_spatial_model = self.spatial_model.propose(proposed_tree, self.grammar)
-        # note that the signature of initializer is different for classes that subclass AoMRShapeState
-        # first parameter grammar is omitted because subclasses should be grammar specific. 
-        return self.__class__(self.forward_model, self.data, self.ll_params, proposed_spatial_model, proposed_tree)
-            
+        proposed_spatial_model = self.spatial_model.propose(pcfg_proposal, self.grammar)
+        proposal = self.__class__(forward_model=self.forward_model, data=self.data, ll_params=self.ll_params, 
+                                  spatial_model=proposed_spatial_model, initial_tree=pcfg_proposal)
+        acc_prob = self._subtree_acceptance_probability(proposal)
+        return proposal, acc_prob    
+    
+    def _subtree_acceptance_probability(self, proposal):
+        """
+        Acceptance probability for subtree move
+        Note that acceptance probability is simply RationalRules acceptance
+        probability (i.e. independent of spatial model)
+        The derivation for this can be seen in the paper
+        """
+        # calculate acceptance probability
+        acc_prob = 1
+        nt_current = [node for node in self.tree.expand_tree(mode=Tree.WIDTH) 
+                           if self.tree[node].tag.symbol in self.grammar.nonterminals]
+        nt_proposal = [node for node in proposal.tree.expand_tree(mode=Tree.WIDTH) 
+                           if proposal.tree[node].tag.symbol in self.grammar.nonterminals]
         
+        # prior terms contain prior probabilities for spatial model too, so
+        # in order to get back to Rational Rules prior we multiply with
+        # inverse of spatial model probabilities
+        acc_prob = acc_prob * proposal.prior * proposal.likelihood * len(nt_current) * self.derivation_prob * self.spatial_model.probability()
+        acc_prob = acc_prob / (self.prior * self.likelihood * len(nt_proposal) * proposal.derivation_prob * proposal.spatial_model.probability())
+        return acc_prob
+    
     def _prior(self):
         """
         Prior probability for state
@@ -123,16 +150,6 @@ class ShapeGrammarState(PCFGTree):
         distance = np.sum((render - data)**2) / float(render.size)
         return np.exp(-b*distance) 
         
-    def acceptance_prob(self, proposal):
-        """
-        Acceptance probability of proposal state given current state
-        Gets acceptance probability for tree from base class
-        and augments it according to spatial layout probabilities
-        NOTE: this acceptance probability may not be correct for your
-        model, you should override this method in your subclass
-        """
-        acc_prob = PCFGTree.acceptance_prob(self, proposal) * ( proposal.spatial_model.probability() / self.spatial_model.probability())
-        return acc_prob
          
     def convert_to_parts_positions(self):
         """
@@ -167,9 +184,10 @@ class ShapeGrammarState(PCFGTree):
     def __getstate__(self):
         """
         Return data to be pickled. 
-        ForwardModel cannot be pickled because it contains VTKObjects, that's
-        why we remove it from data to be pickled
+        ForwardModel cannot be pickled because it contains VTKObjects, similarly
+        moves cannot be pickled because it contains instancemethod objects. that's
+        why we remove them from data to be pickled
         """
-        return dict((k,v) for k, v in self.__dict__.iteritems() if k is not 'forward_model')
+        return dict((k,v) for k, v in self.__dict__.iteritems() if k not in ['forward_model', 'moves'])
     
 

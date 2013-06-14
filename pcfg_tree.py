@@ -41,7 +41,7 @@ class PCFGTree:
     Reference: Goodman, N. D., Tenenbaum, J. B., Feldman, J., & Griffiths, T. L. (2008).
     A rational analysis of rule-based concept learning. Cognitive science, 32(1), 108-54.
     """
-    def __init__(self, grammar, data, ll_params, initial_tree=None):
+    def __init__(self, grammar=None, data=None, ll_params=None, initial_tree=None):
         """
         grammar: PCFG object that defines the grammar
         data: Data, used for calculatng likelihood
@@ -59,6 +59,11 @@ class PCFGTree:
             self.tree = self._get_random_tree(start=self.grammar.start_symbol, max_depth=self.MAXIMUM_DEPTH)
         else:
             self.tree = initial_tree
+            
+        # available moves (proposals)
+        # subclasses may define their own moves, so we need to check if moves is alredy defined
+        if hasattr(self, 'moves') is False:
+            self.moves = [self.subtree_proposal]
             
         # WARNING
         # Note that we are calling self._prior() etc. here
@@ -126,7 +131,7 @@ class PCFGTree:
         
         return nodes_to_expand, max(depths.values())
     
-    def propose_tree(self):
+    def subtree_proposal_propose_tree(self):
         """
         Proposes a new tree based on current state's tree
         Chooses a non-terminal node randomly, prunes its subtree and
@@ -160,17 +165,32 @@ class PCFGTree:
         
         return proposed_state
     
-    def propose_state(self):
+    def subtree_proposal(self):
         """
-        Propose new state based on current state
+        Propose new state based on current state using subtree move
         Proposes a new tree using propose_tree function and
         instantiates a new instance of PCFGTree with it, 
-        then returns it
+        then returns it and its acceptance probability
         You should override this method if your state representation
         contains extra data other than tree 
         """
-        new_tree = self.propose_tree()
-        return self.__class__(new_tree)
+        # propose new state
+        new_tree = self.subtree_proposal_propose_tree()
+        proposal = self.__class__(self.grammar, data=self.data, ll_params=self.ll_params, initial_tree=new_tree)
+        acc_prob = self._subtree_proposal_acceptance_probability(proposal)
+        return proposal, acc_prob
+    
+    def _subtree_proposal_acceptance_probability(self, proposal):
+        # calculate acceptance probability
+        acc_prob = 1
+        nt_current = [node for node in self.tree.expand_tree(mode=Tree.WIDTH) 
+                           if self.tree[node].tag.symbol in self.grammar.nonterminals]
+        nt_proposal = [node for node in proposal.tree.expand_tree(mode=Tree.WIDTH) 
+                           if proposal.tree[node].tag.symbol in self.grammar.nonterminals]
+        
+        acc_prob = acc_prob * proposal.prior * proposal.likelihood * len(nt_current) * self.derivation_prob
+        acc_prob = acc_prob / (self.prior * self.likelihood * len(nt_proposal) * proposal.derivation_prob)
+        return acc_prob
     
     def _prior(self):
         """
@@ -214,21 +234,7 @@ class PCFGTree:
         """
         pass
         
-    def acceptance_prob(self, proposal):
-        """
-        Acceptance probability of proposal state given current state
-        Calculated using Eq. 17
-        """
-        acc_prob = 1
-        nt_current = [node for node in self.tree.expand_tree(mode=Tree.WIDTH) 
-                           if self.tree[node].tag.symbol in self.grammar.nonterminals]
-        nt_proposal = [node for node in proposal.tree.expand_tree(mode=Tree.WIDTH) 
-                           if proposal.tree[node].tag.symbol in self.grammar.nonterminals]
-        
-        acc_prob = acc_prob * proposal.prior * proposal.likelihood * len(nt_current) * self.derivation_prob
-        acc_prob = acc_prob / (self.prior * self.likelihood * len(nt_proposal) * proposal.derivation_prob)
-        return acc_prob
-     
+    
     def __mult_beta(self, vect):
         """
         Multinomial beta function (normalization term for Dirichlet)
@@ -264,3 +270,10 @@ class PCFGTree:
     def __str__(self):
         return "".join(self.tree[node].tag.symbol for node in self.tree.expand_tree(mode=Tree.DEPTH) if len(self.tree[node].fpointer) == 0)
     
+    def __getstate__(self):
+        """
+        Return data to be pickled. 
+        moves cannot be pickled because it contains instancemethod objects, that's
+        why we remove it from data to be pickled
+        """
+        return dict((k,v) for k, v in self.__dict__.iteritems() if k is not 'moves')
