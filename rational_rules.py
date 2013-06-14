@@ -48,16 +48,8 @@ class RationalRulesState(PCFGTree):
     Reference: Goodman, N. D., Tenenbaum, J. B., Feldman, J., & Griffiths, T. L. (2008).
     A rational analysis of rule-based concept learning. Cognitive science, 32(1), 108-54.
     """
-    def __init__(self, data, ll_params, initial_tree=None):
-        PCFGTree.__init__(self, rational_rules_pcfg, data, ll_params, initial_tree)
-    
-                                                 
-    def propose_state(self):
-        """
-        Propose a new RationalRulesState
-        """
-        new_tree = PCFGTree.propose_tree(self)
-        return RationalRulesState(self.data, self.ll_params, new_tree)
+    def __init__(self, grammar=None, data=None, ll_params=None, initial_tree=None):
+        PCFGTree.__init__(self, grammar=rational_rules_pcfg, data=data, ll_params=ll_params, initial_tree=initial_tree)
     
     def _prior(self):
         # we multiply base class prior with 0.5 because 
@@ -120,118 +112,120 @@ if __name__ == '__main__':
             [1, 0, 0, 0, 1], [0, 0, 1, 1, 0], [1, 0, 0, 1, 0], [1, 1, 1, 0, 0],
             [1, 1, 1, 1, 0]])
     params = {'b': 6.0}
-#    
-#    # TEST TREES
-#    t1 = Tree()
-#    t1.create_node(ParseNode('D', 0), identifier='D')
-#    t1.create_node(ParseNode('(', ''), parent='D')
-#    t1.create_node(ParseNode('C', 0), parent='D', identifier='C')
-#    t1.create_node(ParseNode(')', ''), parent='D')
-#    t1.create_node(ParseNode('v', ''), parent='D')
-#    t1.create_node(ParseNode('D', 1), parent='D', identifier='D2')
-#    t1.create_node(ParseNode('P', 0), parent='C', identifier='P')
-#    t1.create_node(ParseNode('^', ''), parent='C')
-#    t1.create_node(ParseNode('C', 1), parent='C', identifier='C2')
-#    t1.create_node(ParseNode('0', ''), parent='D2')
-#    t1.create_node(ParseNode('F1', 0), parent='P', identifier='F1')
-#    t1.create_node(ParseNode('1', ''), parent='C2')
-#    t1.create_node(ParseNode('1f0', ''), parent='F1')
-#    
-#    rrs = RationalRulesState(data, params, t1)
-#    print rrs
-#    print rrs.prior
-#    print rrs.likelihood
-#    print rrs.prior * rrs.likelihood
-#    
-#    t2 = Tree()
-#    
-#    t2.create_node(ParseNode('D', 0), identifier='D')
-#    t2.create_node(ParseNode('(', ''), parent='D')
-#    t2.create_node(ParseNode('C', 0), parent='D', identifier='C')
-#    t2.create_node(ParseNode(')', ''), parent='D')
-#    t2.create_node(ParseNode('v', ''), parent='D')
-#    t2.create_node(ParseNode('D', 1), parent='D', identifier='D2')
-#    t2.create_node(ParseNode('0', ), parent='D2')
-#    t2.create_node(ParseNode('P', 0), parent='C', identifier='P1')
-#    t2.create_node(ParseNode('^', ''), parent='C')
-#    t2.create_node(ParseNode('C', 0), parent='C', identifier='C2')
-#    t2.create_node(ParseNode('F1', 0), parent='P1', identifier='F1')
-#    t2.create_node(ParseNode('1f0', ''), parent='F1')
-#    t2.create_node(ParseNode('P', 0), parent='C2', identifier='P2')
-#    t2.create_node(ParseNode('^', ''), parent='C2')
-#    t2.create_node(ParseNode('C', 1), parent='C2', identifier='C5')
-#    t2.create_node(ParseNode('F3', 0), parent='P2', identifier='F3')
-#    t2.create_node(ParseNode('3f0', ''), parent='F3')
-#    t2.create_node(ParseNode('1', ''), parent='C5')
-#    
-#    rrs2 = RationalRulesState(data, params, t2)
-#    print rrs2
-#    print rrs2.prior
-#    print rrs2.likelihood
-#    print rrs2.prior * rrs2.likelihood
-#
-#    
-#    print rrs.acceptance_prob(rrs2)
-#    
-#    t3 = Tree()
-#    
-#    t3.create_node(ParseNode('D', 0), identifier='D')
-#    t3.create_node(ParseNode('(', ''), parent='D')
-#    t3.create_node(ParseNode('C', 0), parent='D', identifier='C')
-#    t3.create_node(ParseNode(')', ''), parent='D')
-#    t3.create_node(ParseNode('v', ''), parent='D')
-#    t3.create_node(ParseNode('D', 0), parent='D', identifier='D2')
-#    t3.create_node(ParseNode('(', ''), parent='D2')
-#    t3.create_node(ParseNode('C', 0), parent='D2', identifier='C3')
-#    t3.create_node(ParseNode(')', ''), parent='D2')
-#    t3.create_node(ParseNode('v', ''), parent='D2')
-#    t3.create_node(ParseNode('D', 1), parent='D2', identifier='D3')
-#    t3.create_node(ParseNode('0', ), parent='D3')
-#    t3.create_node(ParseNode('P', 0), parent='C', identifier='P1')
-#    t3.create_node(ParseNode('^', ''), parent='C')
-#    t3.create_node(ParseNode('C', 0), parent='C', identifier='C2')
-#    t3.create_node(ParseNode('F1', 0), parent='P1', identifier='F1')
-#    t3.create_node(ParseNode('1f0', ''), parent='F1')
-#    t3.create_node(ParseNode('P', 0), parent='C2', identifier='P2')
-#    t3.create_node(ParseNode('^', ''), parent='C2')
-#    t3.create_node(ParseNode('C', 1), parent='C2', identifier='C5')
-#    t3.create_node(ParseNode('F3', 0), parent='P2', identifier='F3')
-#    t3.create_node(ParseNode('3f0', ''), parent='F3')
-#    t3.create_node(ParseNode('1', ''), parent='C5')
-#    t3.create_node(ParseNode('P', 0), parent='C3', identifier='P3')
-#    t3.create_node(ParseNode('^', ''), parent='C3')
-#    t3.create_node(ParseNode('C', 0), parent='C3', identifier='C4')
-#    t3.create_node(ParseNode('F2', 0), parent='P3', identifier='F2')
-#    t3.create_node(ParseNode('2f0', ''), parent='F2')
-#    t3.create_node(ParseNode('P', 0), parent='C4', identifier='P4')
-#    t3.create_node(ParseNode('^', ''), parent='C4')
-#    t3.create_node(ParseNode('C', 1), parent='C4', identifier='C6')
-#    t3.create_node(ParseNode('F4', 0), parent='P4', identifier='F4')
-#    t3.create_node(ParseNode('4f0', ''), parent='F4')
-#    t3.create_node(ParseNode('1', ''), parent='C6')
-#    
-#    rrs3 = RationalRulesState(data, params, t3)
-#    print rrs3
-#    print rrs3.prior
-#    print rrs3.likelihood
-#    print rrs3.prior * rrs3.likelihood
-#
-#    
-#    print rrs.acceptance_prob(rrs3)
-#    print rrs2.acceptance_prob(rrs3)
-#    
+   
     #RANDOM TEST
-    rrs = RationalRulesState(data, params)
+    rrs = RationalRulesState(data=data, ll_params=params)
     print rrs
     print rrs.prior
     print rrs.derivation_prob
     print rrs.likelihood
     rrs.tree.show()
-    rrs2 = rrs.propose_state()
+    rrs2, acc_prob = rrs.moves[0]()
     print rrs2
     print rrs2.prior
     print rrs2.derivation_prob
     print rrs2.likelihood
     rrs2.tree.show()
     
-    print rrs.acceptance_prob(rrs2)
+    print acc_prob
+    
+        
+#     # TEST TREES
+#     t1 = Tree()
+#     t1.create_node(ParseNode('D', 0), identifier='D')
+#     t1.create_node(ParseNode('(', ''), parent='D')
+#     t1.create_node(ParseNode('C', 0), parent='D', identifier='C')
+#     t1.create_node(ParseNode(')', ''), parent='D')
+#     t1.create_node(ParseNode('v', ''), parent='D')
+#     t1.create_node(ParseNode('D', 1), parent='D', identifier='D2')
+#     t1.create_node(ParseNode('P', 0), parent='C', identifier='P')
+#     t1.create_node(ParseNode('^', ''), parent='C')
+#     t1.create_node(ParseNode('C', 1), parent='C', identifier='C2')
+#     t1.create_node(ParseNode('0', ''), parent='D2')
+#     t1.create_node(ParseNode('F1', 0), parent='P', identifier='F1')
+#     t1.create_node(ParseNode('1', ''), parent='C2')
+#     t1.create_node(ParseNode('1f0', ''), parent='F1')
+#     
+#     rrs = RationalRulesState(data=data, ll_params=params, initial_tree=t1)
+#     print rrs
+#     print rrs.prior
+#     print rrs.likelihood
+#     print rrs.prior * rrs.likelihood
+#     
+#     t2 = Tree()
+#     
+#     t2.create_node(ParseNode('D', 0), identifier='D')
+#     t2.create_node(ParseNode('(', ''), parent='D')
+#     t2.create_node(ParseNode('C', 0), parent='D', identifier='C')
+#     t2.create_node(ParseNode(')', ''), parent='D')
+#     t2.create_node(ParseNode('v', ''), parent='D')
+#     t2.create_node(ParseNode('D', 1), parent='D', identifier='D2')
+#     t2.create_node(ParseNode('0', ), parent='D2')
+#     t2.create_node(ParseNode('P', 0), parent='C', identifier='P1')
+#     t2.create_node(ParseNode('^', ''), parent='C')
+#     t2.create_node(ParseNode('C', 0), parent='C', identifier='C2')
+#     t2.create_node(ParseNode('F1', 0), parent='P1', identifier='F1')
+#     t2.create_node(ParseNode('1f0', ''), parent='F1')
+#     t2.create_node(ParseNode('P', 0), parent='C2', identifier='P2')
+#     t2.create_node(ParseNode('^', ''), parent='C2')
+#     t2.create_node(ParseNode('C', 1), parent='C2', identifier='C5')
+#     t2.create_node(ParseNode('F3', 0), parent='P2', identifier='F3')
+#     t2.create_node(ParseNode('3f0', ''), parent='F3')
+#     t2.create_node(ParseNode('1', ''), parent='C5')
+#     
+#     rrs2 = RationalRulesState(data=data, ll_params=params, initial_tree=t2)
+#     print rrs2
+#     print rrs2.prior
+#     print rrs2.likelihood
+#     print rrs2.prior * rrs2.likelihood
+# 
+#     
+#     print rrs._subtree_proposal_acceptance_probability(rrs2)
+#     
+#     t3 = Tree()
+#     
+#     t3.create_node(ParseNode('D', 0), identifier='D')
+#     t3.create_node(ParseNode('(', ''), parent='D')
+#     t3.create_node(ParseNode('C', 0), parent='D', identifier='C')
+#     t3.create_node(ParseNode(')', ''), parent='D')
+#     t3.create_node(ParseNode('v', ''), parent='D')
+#     t3.create_node(ParseNode('D', 0), parent='D', identifier='D2')
+#     t3.create_node(ParseNode('(', ''), parent='D2')
+#     t3.create_node(ParseNode('C', 0), parent='D2', identifier='C3')
+#     t3.create_node(ParseNode(')', ''), parent='D2')
+#     t3.create_node(ParseNode('v', ''), parent='D2')
+#     t3.create_node(ParseNode('D', 1), parent='D2', identifier='D3')
+#     t3.create_node(ParseNode('0', ), parent='D3')
+#     t3.create_node(ParseNode('P', 0), parent='C', identifier='P1')
+#     t3.create_node(ParseNode('^', ''), parent='C')
+#     t3.create_node(ParseNode('C', 0), parent='C', identifier='C2')
+#     t3.create_node(ParseNode('F1', 0), parent='P1', identifier='F1')
+#     t3.create_node(ParseNode('1f0', ''), parent='F1')
+#     t3.create_node(ParseNode('P', 0), parent='C2', identifier='P2')
+#     t3.create_node(ParseNode('^', ''), parent='C2')
+#     t3.create_node(ParseNode('C', 1), parent='C2', identifier='C5')
+#     t3.create_node(ParseNode('F3', 0), parent='P2', identifier='F3')
+#     t3.create_node(ParseNode('3f0', ''), parent='F3')
+#     t3.create_node(ParseNode('1', ''), parent='C5')
+#     t3.create_node(ParseNode('P', 0), parent='C3', identifier='P3')
+#     t3.create_node(ParseNode('^', ''), parent='C3')
+#     t3.create_node(ParseNode('C', 0), parent='C3', identifier='C4')
+#     t3.create_node(ParseNode('F2', 0), parent='P3', identifier='F2')
+#     t3.create_node(ParseNode('2f0', ''), parent='F2')
+#     t3.create_node(ParseNode('P', 0), parent='C4', identifier='P4')
+#     t3.create_node(ParseNode('^', ''), parent='C4')
+#     t3.create_node(ParseNode('C', 1), parent='C4', identifier='C6')
+#     t3.create_node(ParseNode('F4', 0), parent='P4', identifier='F4')
+#     t3.create_node(ParseNode('4f0', ''), parent='F4')
+#     t3.create_node(ParseNode('1', ''), parent='C6')
+#     
+#     rrs3 = RationalRulesState(data=data, ll_params=params, initial_tree=t3)
+#     print rrs3
+#     print rrs3.prior
+#     print rrs3.likelihood
+#     print rrs3.prior * rrs3.likelihood
+# 
+#     
+#     print rrs._subtree_proposal_acceptance_probability(rrs3)
+#     print rrs2._subtree_proposal_acceptance_probability(rrs3)
+#  

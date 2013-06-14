@@ -28,18 +28,6 @@ prod_probabilities = {'S' : [1/12.0, 1/12.0, 1/12.0, 1/12.0, 1/12.0, 1/12.0, 1/1
 # enforcing a depth limit
 # 
 terminating_rule_ids = {'S' : [4, 5, 6, 7, 8, 9, 10, 11]}
-# OLD GRAMMAR
-# terminals = ['Front0', 'Front1', 'Bottom0', 'Bottom1', 'Top0', 'Top1', 'Ear0', 'Ear1']
-# nonterminals = ['S', 'P']
-# start_symbol = 'S'
-# rules = {'S' : [['P'], ['S'], ['S', 'S'], ['S', 'S', 'S'], ['S', 'S', 'S', 'S']], 
-#           'P' : [['Front0'], ['Front1'], ['Bottom0'], ['Bottom1'], ['Top0'], ['Top1'], ['Ear0'], ['Ear1']] }
-# prod_probabilities = {'S' : [.2, .2, .2, .2, .2], 'P' : [.125, .125, .125, .125, .125, .125, .125, .125]}
-# # id of rules that produce only terminals for each nonterminal
-# # this is used for stopping tree from growing without bound and
-# # enforcing a depth limit
-# # 
-# terminating_rule_ids = {'S' : [0], 'P': [0, 1, 2, 3, 4, 5, 6, 7]}
 
 aomr_shape_pcfg = PCFG(terminals, nonterminals, start_symbol, rules, prod_probabilities, terminating_rule_ids)
 
@@ -165,13 +153,16 @@ class AoMRShapeState(ShapeGrammarState):
     """
     AoMR shape state class for AoMR grammar and spatial model
     """
-    def __init__(self, forward_model, data, ll_params, spatial_model, initial_tree=None):
+    def __init__(self, forward_model=None, data=None, ll_params=None, spatial_model=None, initial_tree=None):
         """
         Constructor for AoMRShapeState
         Note that the first parameter ``grammar`` of base class AoMRShapeState is removed because 
         this class is a grammar specific implementation
         """
-        ShapeGrammarState.__init__(self, aomr_shape_pcfg, forward_model, data, ll_params, spatial_model, initial_tree)
+        self.moves = [self.subtree_proposal]
+        ShapeGrammarState.__init__(self, grammar=aomr_shape_pcfg, forward_model=forward_model, 
+                                   data=data, ll_params=ll_params, spatial_model=spatial_model, 
+                                   initial_tree=initial_tree)
     
     # all the other functionality is independent of grammar and spatial model. 
     # hence they are implemented in AoMRShapeState base class
@@ -215,20 +206,6 @@ class AoMRShapeState(ShapeGrammarState):
 #         """
 #         return PCFGTree._derivation_prob(self) * self.spatial_model.probability()
 #     
-    def acceptance_prob(self, proposal):
-        """
-        Acceptance probability for AoMR Shape Grammar is simply 
-        Rational Rules acceptance probability. The derivation for
-        this can be seen in the paper.
-        """
-        nt_current = [node for node in self.tree.expand_tree(mode=Tree.WIDTH) 
-                           if self.tree[node].tag.symbol in self.grammar.nonterminals]
-        nt_proposal = [node for node in proposal.tree.expand_tree(mode=Tree.WIDTH) 
-                           if proposal.tree[node].tag.symbol in self.grammar.nonterminals]
-        acc_prob = 1
-        acc_prob = acc_prob * proposal.prior * proposal.likelihood * len(nt_current) * self.derivation_prob * self.spatial_model.probability()
-        acc_prob = acc_prob / (self.prior * self.likelihood * len(nt_proposal) * proposal.derivation_prob * proposal.spatial_model.probability()) 
-        return acc_prob
     
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -263,7 +240,7 @@ class AoMRShapeState(ShapeGrammarState):
 
 if __name__ == '__main__':
     data = np.load('data/visual/1.npy')
-    params = {'b': 1250.0}
+    params = {'b': 1750.0}
     forward_model = VisionForwardModel()
     #forward_model = HapticsForwardModel()
     
@@ -294,7 +271,7 @@ if __name__ == '__main__':
     spatial_model1.voxels = voxels1
     spatial_model1._update_positions(t1)
     
-    rrs = AoMRShapeState(forward_model, data, params, spatial_model1, t1)
+    rrs = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model1, initial_tree=t1)
      
     print rrs
     print ('Prior: %g' % rrs.prior)
@@ -302,9 +279,6 @@ if __name__ == '__main__':
     print ('Posterior: %g' % (rrs.prior*rrs.likelihood))
     rrs.tree.show()
      
-    rules = {'S' : [['S'], ['S', 'S'], ['S', 'S', 'S'], ['S', 'S', 'S', 'S'], 
-                ['Front0'], ['Front1'], ['Bottom0'], ['Bottom1'], ['Top0'], ['Top1'], ['Ear0'], ['Ear1']], }
-
     # correct tree
     t2 = Tree()
     t2.create_node(ParseNode('S', 2), identifier='S')
@@ -325,15 +299,14 @@ if __name__ == '__main__':
     spatial_model2.voxels = voxels2
     spatial_model2._update_positions(t2)
       
-    rrs2 = AoMRShapeState(forward_model, data, params, spatial_model2, t2)
+    rrs2 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model2, initial_tree=t2)
+    
     print rrs2
     print ('Prior: %g' % rrs2.prior)
     print ('Likelihood: %g' % rrs2.likelihood)
     print ('Posterior: %g' % (rrs2.prior*rrs2.likelihood))
     rrs2.tree.show()
-      
-    print ('Acceptance Prob 1-2: %f' % rrs.acceptance_prob(rrs2))
-       
+     
     # tree with 1 part missing
     t3 = Tree()
     t3.create_node(ParseNode('S', 2), identifier='S')
@@ -352,17 +325,14 @@ if __name__ == '__main__':
     spatial_model3.voxels = voxels3
     spatial_model3._update_positions(t3)
            
-    rrs3 = AoMRShapeState(forward_model, data, params, spatial_model3, t3)
+    rrs3 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model3, initial_tree=t3)
+    
     print rrs3
     print ('Prior: %g' % rrs3.prior)
     print ('Likelihood: %g' % rrs3.likelihood)
     print ('Posterior: %g' % (rrs3.prior*rrs3.likelihood))
     rrs3.tree.show()
-     
-       
-    print ('Acceptance Prob 1-3: %f' % rrs.acceptance_prob(rrs3))
-    print ('Acceptance Prob 2-3: %f' % rrs2.acceptance_prob(rrs3))
-#       
+        
 #     # tree with only bottom and ear
 #     t4 = Tree()
 #     t4.create_node(ParseNode('S', 3), identifier='S')
@@ -387,9 +357,9 @@ if __name__ == '__main__':
 #     print ('Posterior: %g' % (rrs4.prior*rrs4.likelihood))
 #     rrs4.tree.show()
 #       
-#     print ('Acceptance Prob 1-4: %f' % rrs.acceptance_prob(rrs4))
-#     print ('Acceptance Prob 2-4: %f' % rrs2.acceptance_prob(rrs4))
-#     print ('Acceptance Prob 3-4: %f' % rrs3.acceptance_prob(rrs4))
+#     print ('Acceptance Prob 1-4: %f' % rrs._subtree_acceptance_probability(rrs4))
+#     print ('Acceptance Prob 2-4: %f' % rrs2._subtree_acceptance_probability(rrs4))
+#     print ('Acceptance Prob 3-4: %f' % rrs3._subtree_acceptance_probability(rrs4))
 #     
     # tree with only bottom
     t5 = Tree()
@@ -402,18 +372,14 @@ if __name__ == '__main__':
     spatial_model5.voxels = voxels5
     spatial_model5._update_positions(t5)
        
-    rrs5 = AoMRShapeState(forward_model, data, params, spatial_model5, t5)
+    rrs5 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model5, initial_tree=t5)
+    
     print rrs5
     print ('Prior: %g' % rrs5.prior)
     print ('Likelihood: %g' % rrs5.likelihood)
     print ('Posterior: %g' % (rrs5.prior*rrs5.likelihood))
     rrs5.tree.show()
-       
-    print ('Acceptance Prob 1-5: %f' % rrs.acceptance_prob(rrs5))
-    print ('Acceptance Prob 2-5: %f' % rrs2.acceptance_prob(rrs5))
-    print ('Acceptance Prob 3-5: %f' % rrs3.acceptance_prob(rrs5))
-#     print ('Acceptance Prob 4-5: %f' % rrs4.acceptance_prob(rrs5))
-#     
+      
     # tree with only bottom and front
     t6 = Tree()
     t6.create_node(ParseNode('S', 1), identifier='S')
@@ -428,20 +394,14 @@ if __name__ == '__main__':
     spatial_model6.voxels = voxels6
     spatial_model6._update_positions(t6)
            
-    rrs6 = AoMRShapeState(forward_model, data, params, spatial_model6, t6)
+    rrs6 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model6, initial_tree=t6)
+    
     print rrs6
     print ('Prior: %g' % rrs6.prior)
     print ('Likelihood: %g' % rrs6.likelihood)
     print ('Posterior: %g' % (rrs6.prior*rrs6.likelihood))
     rrs6.tree.show()
-     
-       
-    print ('Acceptance Prob 1-6: %f' % rrs.acceptance_prob(rrs6))
-    print ('Acceptance Prob 2-6: %f' % rrs2.acceptance_prob(rrs6))
-    print ('Acceptance Prob 3-6: %f' % rrs3.acceptance_prob(rrs6))
-#     print ('Acceptance Prob 4-6: %f' % rrs4.acceptance_prob(rrs6))
-    print ('Acceptance Prob 5-6: %f' % rrs5.acceptance_prob(rrs6))
-     
+    
     # front part slightly mislocated
     t7 = Tree()
     t7.create_node(ParseNode('S', 2), identifier='S')
@@ -461,21 +421,15 @@ if __name__ == '__main__':
     spatial_model7.voxels = voxels7
     spatial_model7._update_positions(t7)
        
-    rrs7 = AoMRShapeState(forward_model, data, params, spatial_model7, t7)
+    rrs7 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model7, initial_tree=t7)
+    
     print rrs7
     print ('Prior: %g' % rrs7.prior)
     print ('Likelihood: %g' % rrs7.likelihood)
     print ('Posterior: %g' % (rrs7.prior*rrs7.likelihood))
     rrs7.tree.show()
      
-    print ('Acceptance Prob 1-7: %f' % rrs.acceptance_prob(rrs7))
-    print ('Acceptance Prob 2-7: %f' % rrs2.acceptance_prob(rrs7))
-    print ('Acceptance Prob 3-7: %f' % rrs3.acceptance_prob(rrs7))
-#     print ('Acceptance Prob 4-7: %f' % rrs4.acceptance_prob(rrs7))
-    print ('Acceptance Prob 5-7: %f' % rrs5.acceptance_prob(rrs7))
-    print ('Acceptance Prob 6-7: %f' % rrs6.acceptance_prob(rrs7))
-     
-    forward_model._view(rrs7)
+    #forward_model._view(rrs7)
     
     print('Posteriors')
     print ('1 No parts: %g' % (rrs.prior*rrs.likelihood))
@@ -486,18 +440,18 @@ if __name__ == '__main__':
     print ('6 Mislocated: %g' % (rrs7.prior*rrs7.likelihood))
     
     print('Acceptance Probabilities')
-    print ('Acceptance Prob 1-2: %f' % rrs.acceptance_prob(rrs2))
-    print ('Acceptance Prob 1-3: %f' % rrs.acceptance_prob(rrs3))
-    print ('Acceptance Prob 1-4: %f' % rrs.acceptance_prob(rrs5))
-    print ('Acceptance Prob 1-5: %f' % rrs.acceptance_prob(rrs6))
-    print ('Acceptance Prob 1-6: %f' % rrs.acceptance_prob(rrs7))
-    print ('Acceptance Prob 2-3: %f' % rrs2.acceptance_prob(rrs3))
-    print ('Acceptance Prob 2-4: %f' % rrs2.acceptance_prob(rrs5))
-    print ('Acceptance Prob 2-5: %f' % rrs2.acceptance_prob(rrs6))
-    print ('Acceptance Prob 2-6: %f' % rrs2.acceptance_prob(rrs7))
-    print ('Acceptance Prob 3-4: %f' % rrs3.acceptance_prob(rrs5))
-    print ('Acceptance Prob 3-5: %f' % rrs3.acceptance_prob(rrs6))
-    print ('Acceptance Prob 3-6: %f' % rrs3.acceptance_prob(rrs7))
-    print ('Acceptance Prob 4-5: %f' % rrs5.acceptance_prob(rrs6))
-    print ('Acceptance Prob 4-6: %f' % rrs5.acceptance_prob(rrs7))
-    print ('Acceptance Prob 5-6: %f' % rrs6.acceptance_prob(rrs7))
+    print ('Acceptance Prob 1-2: %f' % rrs._subtree_acceptance_probability(rrs2))
+    print ('Acceptance Prob 1-3: %f' % rrs._subtree_acceptance_probability(rrs3))
+    print ('Acceptance Prob 1-4: %f' % rrs._subtree_acceptance_probability(rrs5))
+    print ('Acceptance Prob 1-5: %f' % rrs._subtree_acceptance_probability(rrs6))
+    print ('Acceptance Prob 1-6: %f' % rrs._subtree_acceptance_probability(rrs7))
+    print ('Acceptance Prob 2-3: %f' % rrs2._subtree_acceptance_probability(rrs3))
+    print ('Acceptance Prob 2-4: %f' % rrs2._subtree_acceptance_probability(rrs5))
+    print ('Acceptance Prob 2-5: %f' % rrs2._subtree_acceptance_probability(rrs6))
+    print ('Acceptance Prob 2-6: %f' % rrs2._subtree_acceptance_probability(rrs7))
+    print ('Acceptance Prob 3-4: %f' % rrs3._subtree_acceptance_probability(rrs5))
+    print ('Acceptance Prob 3-5: %f' % rrs3._subtree_acceptance_probability(rrs6))
+    print ('Acceptance Prob 3-6: %f' % rrs3._subtree_acceptance_probability(rrs7))
+    print ('Acceptance Prob 4-5: %f' % rrs5._subtree_acceptance_probability(rrs6))
+    print ('Acceptance Prob 4-6: %f' % rrs5._subtree_acceptance_probability(rrs7))
+    print ('Acceptance Prob 5-6: %f' % rrs6._subtree_acceptance_probability(rrs7))

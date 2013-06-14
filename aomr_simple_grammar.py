@@ -24,7 +24,7 @@ start_symbol = 'S'
 rules = {'S' : [['P', 'S'], ['Null']], 
          'P' : [['Front0'], ['Front1'], ['Bottom0'], ['Bottom1'], ['Top0'], ['Top1'], ['Ear0'], ['Ear1']] }
 prod_probabilities = {'S' : [.5, .5], 'P' : [.125, .125, .125, .125, .125, .125, .125, .125]}
-terminating_rule_ids = {'S' : [2], 'P' : [0, 1, 2, 3, 4, 5, 6, 7]}
+terminating_rule_ids = {'S' : [1], 'P' : [0, 1, 2, 3, 4, 5, 6, 7]}
 
 aomr_simple_shape_pcfg = PCFG(terminals, nonterminals, start_symbol, rules, prod_probabilities, terminating_rule_ids)
 
@@ -36,7 +36,7 @@ class AoMRSimpleSpatialModel(SpatialModel):
     Keys for positions dictionary are tree node ids
     """
     # Spatial Model Possible Locations
-    possible_positions = [(-.0025, 0, -.0228), (.0535, 0, .0054), (-.0191, 0, .0259), (-.0237, 0, .0341)]
+    possible_positions = [(0.0, 0.0, -0.0228), (0.05346666666666666, 0.0, 0.0076), (-0.017822222222222222, 0.0, 0.0304), (-0.017822222222222222, 0.0, 0.0228)]
     # probability for each position (uniform)
     prob = .25
     
@@ -102,13 +102,16 @@ class AoMRSimpleShapeState(ShapeGrammarState):
     AoMR shape state class for simple AoMR grammar and spatial model
     """
     
-    def __init__(self, forward_model, data, ll_params, spatial_model, initial_tree=None):
+    def __init__(self, forward_model=None, data=None, ll_params=None, spatial_model=None, initial_tree=None):
         """
         Constructor for AoMRSimpleShapeState
         Note that the first parameter ``grammar`` of base class AoMRShapeState is removed because 
         this class is a grammar specific implementation
         """
-        ShapeGrammarState.__init__(self, aomr_simple_shape_pcfg, forward_model, data, ll_params, spatial_model, initial_tree)
+        self.MAXIMUM_DEPTH = 5
+        ShapeGrammarState.__init__(self, grammar=aomr_simple_shape_pcfg, forward_model=forward_model, 
+                                   data=data, ll_params=ll_params, spatial_model=spatial_model, 
+                                   initial_tree=initial_tree)
     
     # all the other functionality is independent of grammar and spatial model. 
     # hence they are implemented in AoMRShapeState base class
@@ -172,21 +175,22 @@ if __name__ == '__main__':
     # 1 part (ear) removed. Our purpose is to understand the b value we should set
     # to make sure correct configuration has the highest posterior.
       
-#     # Tree with no parts
-#     t1 = Tree()
-#     t1.create_node(ParseNode('S', 1), identifier='S')
-#     t1.create_node(ParseNode('Null', ''), parent='S')
-#     
-#     spatial_model1 = AoMRSimpleSpatialModel()
-#     
-#     rrs = AoMRSimpleShapeState(forward_model, data, params, spatial_model1, t1)
-#     
-#     print rrs
-#     print ('Prior: %g' % rrs.prior)
-#     print ('Likelihood: %g' % rrs.likelihood)
-#     print ('Posterior: %g' % (rrs.prior*rrs.likelihood))
-#     rrs.tree.show()
-#     
+    # Tree with no parts
+    t1 = Tree()
+    t1.create_node(ParseNode('S', 1), identifier='S')
+    t1.create_node(ParseNode('Null', ''), parent='S')
+     
+    spatial_model1 = AoMRSimpleSpatialModel()
+     
+    rrs = AoMRSimpleShapeState(forward_model=forward_model, data=data, 
+                               ll_params=params, spatial_model=spatial_model1, initial_tree=t1)
+     
+    print rrs
+    print ('Prior: %g' % rrs.prior)
+    print ('Likelihood: %g' % rrs.likelihood)
+    print ('Posterior: %g' % (rrs.prior*rrs.likelihood))
+    rrs.tree.show()
+     
     # correct tree
     t2 = Tree()
     t2.create_node(ParseNode('S', 0), identifier='S')
@@ -212,69 +216,74 @@ if __name__ == '__main__':
     
     spatial_model2 = AoMRSimpleSpatialModel(positions2)
     
-    rrs2 = AoMRSimpleShapeState(forward_model, data, params, spatial_model2, t2)
+    rrs2 = AoMRSimpleShapeState(forward_model=forward_model, data=data, 
+                               ll_params=params, spatial_model=spatial_model2, initial_tree=t2)
+    
     print rrs2
     print ('Prior: %g' % rrs2.prior)
     print ('Likelihood: %g' % rrs2.likelihood)
     print ('Posterior: %g' % (rrs2.prior*rrs2.likelihood))
     rrs2.tree.show()
     
-#     print ('Acceptance Prob 1-2: %f' % rrs.acceptance_prob(rrs2))
-#     
-#     # tree with 1 part missing
-#     t3 = Tree()
-#     t3.create_node(ParseNode('S', 0), identifier='S')
-#     t3.create_node(ParseNode('P', 0), parent='S', identifier='P1')
-#     t3.create_node(ParseNode('S', 0), parent='S', identifier='S1')
-#     t3.create_node(ParseNode('Front0', ''), parent='P1', identifier='F0')
-#     t3.create_node(ParseNode('P', 2), parent='S1', identifier='P2')
-#     t3.create_node(ParseNode('S', 0), parent='S1', identifier='S2')
-#     t3.create_node(ParseNode('Bottom0', ''), parent='P2', identifier='B0')
-#     t3.create_node(ParseNode('P', 4), parent='S2', identifier='P3')
-#     t3.create_node(ParseNode('S', 1), parent='S2', identifier='S3')
-#     t3.create_node(ParseNode('Ear0', ''), parent='P3', identifier='E0')
-#     t3.create_node(ParseNode('Null', ''), parent='S3')
-#     
-#     positions3 = {'F0' : actual_positions['Front0'], 
-#                  'B0' : actual_positions['Bottom0'], 
-#                  'E0' : actual_positions['Ear0'],}
-#     
-#     spatial_model3 = AoMRSimpleSpatialModel(positions3)
-#     
-#     rrs3 = AoMRSimpleShapeState(forward_model, data, params, spatial_model3, t3)
-#     print rrs3
-#     print ('Prior: %g' % rrs3.prior)
-#     print ('Likelihood: %g' % rrs3.likelihood)
-#     print ('Posterior: %g' % (rrs3.prior*rrs3.likelihood))
-#     rrs3.tree.show()
-#     
-#     print ('Acceptance Prob 1-3: %f' % rrs.acceptance_prob(rrs3))
-#     print ('Acceptance Prob 2-3: %f' % rrs2.acceptance_prob(rrs3))
-#     
-#     # tree with only bottom and ear
-#     t4 = Tree()
-#     t4.create_node(ParseNode('S', 0), identifier='S')
-#     t4.create_node(ParseNode('P', 0), parent='S', identifier='P1')
-#     t4.create_node(ParseNode('S', 0), parent='S', identifier='S1')
-#     t4.create_node(ParseNode('Bottom0', ''), parent='P1', identifier='B0')
-#     t4.create_node(ParseNode('P', 2), parent='S1', identifier='P2')
-#     t4.create_node(ParseNode('S', 1), parent='S1', identifier='S2')
-#     t4.create_node(ParseNode('Ear0', ''), parent='P2', identifier='E0')
-#     t4.create_node(ParseNode('Null', ''), parent='S2')
-#     
-#     positions4 = {'B0' : actual_positions['Bottom0'], 
-#                  'E0' : actual_positions['Ear0'],}
-#     
-#     spatial_model4 = AoMRSimpleSpatialModel(positions4)
-#     
-#     rrs4 = AoMRSimpleShapeState(forward_model, data, params, spatial_model4, t4)
-#     print rrs4
-#     print ('Prior: %g' % rrs4.prior)
-#     print ('Likelihood: %g' % rrs4.likelihood)
-#     print ('Posterior: %g' % (rrs4.prior*rrs4.likelihood))
-#     rrs4.tree.show()
-#     
-#     print ('Acceptance Prob 1-4: %f' % rrs.acceptance_prob(rrs4))
-#     print ('Acceptance Prob 2-4: %f' % rrs2.acceptance_prob(rrs4))
-#     print ('Acceptance Prob 3-4: %f' % rrs3.acceptance_prob(rrs4))
-#     #forward_model._view(rrs)
+    print ('Acceptance Prob 1-2: %f' % rrs._subtree_acceptance_probability(rrs2))
+     
+    # tree with 1 part missing
+    t3 = Tree()
+    t3.create_node(ParseNode('S', 0), identifier='S')
+    t3.create_node(ParseNode('P', 0), parent='S', identifier='P1')
+    t3.create_node(ParseNode('S', 0), parent='S', identifier='S1')
+    t3.create_node(ParseNode('Front0', ''), parent='P1', identifier='F0')
+    t3.create_node(ParseNode('P', 2), parent='S1', identifier='P2')
+    t3.create_node(ParseNode('S', 0), parent='S1', identifier='S2')
+    t3.create_node(ParseNode('Bottom0', ''), parent='P2', identifier='B0')
+    t3.create_node(ParseNode('P', 4), parent='S2', identifier='P3')
+    t3.create_node(ParseNode('S', 1), parent='S2', identifier='S3')
+    t3.create_node(ParseNode('Ear0', ''), parent='P3', identifier='E0')
+    t3.create_node(ParseNode('Null', ''), parent='S3')
+     
+    positions3 = {'F0' : actual_positions['Front0'], 
+                 'B0' : actual_positions['Bottom0'], 
+                 'E0' : actual_positions['Ear0'],}
+     
+    spatial_model3 = AoMRSimpleSpatialModel(positions3)
+     
+    rrs3 = AoMRSimpleShapeState(forward_model=forward_model, data=data, 
+                               ll_params=params, spatial_model=spatial_model3, initial_tree=t3)
+    print rrs3
+    print ('Prior: %g' % rrs3.prior)
+    print ('Likelihood: %g' % rrs3.likelihood)
+    print ('Posterior: %g' % (rrs3.prior*rrs3.likelihood))
+    rrs3.tree.show()
+     
+    print ('Acceptance Prob 1-3: %f' % rrs._subtree_acceptance_probability(rrs3))
+    print ('Acceptance Prob 2-3: %f' % rrs2._subtree_acceptance_probability(rrs3))
+     
+    # tree with only bottom and ear
+    t4 = Tree()
+    t4.create_node(ParseNode('S', 0), identifier='S')
+    t4.create_node(ParseNode('P', 0), parent='S', identifier='P1')
+    t4.create_node(ParseNode('S', 0), parent='S', identifier='S1')
+    t4.create_node(ParseNode('Bottom0', ''), parent='P1', identifier='B0')
+    t4.create_node(ParseNode('P', 2), parent='S1', identifier='P2')
+    t4.create_node(ParseNode('S', 1), parent='S1', identifier='S2')
+    t4.create_node(ParseNode('Ear0', ''), parent='P2', identifier='E0')
+    t4.create_node(ParseNode('Null', ''), parent='S2')
+     
+    positions4 = {'B0' : actual_positions['Bottom0'], 
+                 'E0' : actual_positions['Ear0'],}
+     
+    spatial_model4 = AoMRSimpleSpatialModel(positions4)
+     
+    rrs4 = AoMRSimpleShapeState(forward_model=forward_model, data=data, 
+                               ll_params=params, spatial_model=spatial_model4, initial_tree=t4)
+    print rrs4
+    print ('Prior: %g' % rrs4.prior)
+    print ('Likelihood: %g' % rrs4.likelihood)
+    print ('Posterior: %g' % (rrs4.prior*rrs4.likelihood))
+    rrs4.tree.show()
+     
+    print ('Acceptance Prob 1-4: %f' % rrs._subtree_acceptance_probability(rrs4))
+    print ('Acceptance Prob 2-4: %f' % rrs2._subtree_acceptance_probability(rrs4))
+    print ('Acceptance Prob 3-4: %f' % rrs3._subtree_acceptance_probability(rrs4))
+    
+    forward_model._view(rrs2)
