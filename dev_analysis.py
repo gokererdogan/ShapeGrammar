@@ -8,13 +8,12 @@ from mcmc_sampler import *
 from vision_forward_model import VisionForwardModel
 
 # load results
-fname = 'AoMR_Shape_Grammar_-_Visual_Condition20130613201442.mcmc'
+fname = 'AoMR_Shape_Grammar_-_Visual_Condition20130617135710.mcmc'
 f = open(fname)
 results = pickle.load(f)
 print results
-state = results.best_samples[0][0].state
 forward_model = VisionForwardModel()
-forward_model._view(state)
-
-state.tree.show()
+for sample in results.samples[0]:
+    forward_model._view(sample.state)
+    sample.state.tree.show()
 
