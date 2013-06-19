@@ -146,10 +146,9 @@ class ShapeGrammarState(PCFGTree):
         data = self.data
         params = self.ll_params
         b = params['b']
-        render = self.forward_model.render(self)
-        distance = np.sum((render - data)**2) / float(render.size)
+        self.render = self.forward_model.render(self)
+        distance = np.sum((self.render - data)**2) / float(self.render.size)
         return np.exp(-b*distance) 
-        
          
     def convert_to_parts_positions(self):
         """

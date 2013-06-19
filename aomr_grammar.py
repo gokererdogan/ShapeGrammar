@@ -159,7 +159,7 @@ class AoMRShapeState(ShapeGrammarState):
         Note that the first parameter ``grammar`` of base class AoMRShapeState is removed because 
         this class is a grammar specific implementation
         """
-        self.moves = [self.subtree_proposal]
+        self.moves = [self.subtree_proposal, self.add_remove_branch_proposal]
         ShapeGrammarState.__init__(self, grammar=aomr_shape_pcfg, forward_model=forward_model, 
                                    data=data, ll_params=ll_params, spatial_model=spatial_model, 
                                    initial_tree=initial_tree)
@@ -194,18 +194,133 @@ class AoMRShapeState(ShapeGrammarState):
         
         return parts, positions
     
-#     def _prior(self):
-#         """
-#         Override PCFGTree prior, we do not integrate
-#         out production probabilities as it is unnecessary
-#         in our case (since all our uniform) and it decreases
-#         prior probabilities for nothing
-#         Then in our case prior probability becomes only
-#         the derivation probability for a parse tree and
-#         spatial model's prior probability
-#         """
-#         return PCFGTree._derivation_prob(self) * self.spatial_model.probability()
-#     
+    
+    def add_remove_branch_proposal(self):
+        """
+        Proposes a new state based on current state using add/remove branch move
+        First choose randomly if we are doing an add or remove move
+        If add move: finds all S nodes with less than 4 children, chooses
+            one randomly, chooses a random part to append to it and adds a child
+            S->P node to chosen node
+            This move essentially adds a new part to object
+        If remove move: finds all S nodes that directly go to parts, chooses one
+            randomly and removes it.
+        """
+        proposal_tree = deepcopy(self.tree)
+        which_move = np.random.rand()
+        move_type = -1
+        if which_move < .5: # add move
+            move_type = 0
+            # find a suitable S node
+            suitable_nodes = self._add_remove_branch_get_suitable_nodes(proposal_tree, move_type)
+            
+            # if there are nodes to choose from, else do nothing
+            if len(suitable_nodes) > 0:
+                # choose one of the suitable nodes randomly
+                chosen_node_id = np.random.choice(suitable_nodes)
+                
+                # sample a new part for the new S node
+                chosen_part_rule_id = np.random.choice(self.grammar.terminating_rule_ids['S'])
+                chosen_part = self.grammar.rules['S'][chosen_part_rule_id][0]
+                
+                # add the new S branch and its part
+                new_snode = proposal_tree.create_node(tag=ParseNode('S', chosen_part_rule_id), parent=chosen_node_id)
+                proposal_tree.create_node(tag=ParseNode(chosen_part, ''), parent=new_snode.identifier)
+                
+                # change the production rule used in node's parent
+                proposal_tree[chosen_node_id].tag.rule = proposal_tree[chosen_node_id].tag.rule + 1
+        else: # remove move
+            move_type = 1
+            suitable_remove_nodes = self._add_remove_branch_get_suitable_nodes(proposal_tree, move_type)
+            
+            # if we have nodes to choose from, else do nothing
+            if len(suitable_remove_nodes) > 0:
+                # choose one of the suitable nodes for removal
+                chosen_node_id = np.random.choice(suitable_remove_nodes)
+                parent_node_id = proposal_tree[chosen_node_id].bpointer
+                # remove node
+                proposal_tree.remove_node(chosen_node_id)
+                
+                # change the production rule used in its parent
+                proposal_tree[parent_node_id].tag.rule = proposal_tree[parent_node_id].tag.rule - 1
+            
+        # get a new spatial model based on proposed tree
+        proposed_spatial_model = self.spatial_model.propose(proposal_tree, self.grammar)
+        proposal = self.__class__(forward_model=self.forward_model, data=self.data, ll_params=self.ll_params, 
+                                  spatial_model=proposed_spatial_model, initial_tree=proposal_tree)
+        
+        # get acceptance probability
+        acc_prob = self._add_remove_branch_acceptance_probability(proposal, move_type)
+        return proposal, acc_prob    
+    
+    def _add_remove_branch_get_suitable_nodes(self, proposal_tree, move_type):
+        """
+        Gets nodes that can be removed or added for add/branch move depending
+        on move_type parameter
+        """
+        suitable_nodes = []
+        if move_type == 0: # add move
+            for node in proposal_tree.expand_tree(mode=Tree.WIDTH):
+                # if node is an S node and has
+                # less than 3 children
+                # NOTE THIS CODE IS GRAMMAR SPECIFIC, BE CAREFUL WHEN YOU
+                # USE THIS PROPOSAL WITH A DIFFERENT GRAMMAR
+                if proposal_tree[node].tag.symbol == 'S' and proposal_tree[node].tag.rule < 3:
+                    suitable_nodes.append(node)
+        elif move_type == 1: # remove move
+            # find nodes that can be removed
+            for node in proposal_tree.expand_tree(mode=Tree.WIDTH):
+                # if node is not root, is an S node and directly goes to a part
+                # and is not the only child of its parent
+                if proposal_tree[node].bpointer is not None and \
+                    proposal_tree[node].tag.symbol == 'S' and \
+                    proposal_tree[node].tag.rule > 3 and \
+                    len(proposal_tree[proposal_tree[node].bpointer].fpointer) > 1:
+                    suitable_nodes.append(node)
+        else:
+            raise ValueError('move_type can only be 0 or 1')
+        
+        return suitable_nodes
+    
+    def _add_remove_branch_acceptance_probability(self, proposal, move_type):
+        """
+        Acceptance probability for add/remove branch move
+        """
+        # proposal probabilities
+        q_sp_s = 1
+        q_s_sp = 1
+        if move_type == 0: # add move
+            # number of branches we can remove in proposal
+            removable_nodes = self._add_remove_branch_get_suitable_nodes(proposal.tree, 1)
+            # nodes to which we can add a branch in current state
+            add_nodes = self._add_remove_branch_get_suitable_nodes(self.tree, 0)
+            if len(removable_nodes) > 0 and len(add_nodes) > 0:
+                # q(S' -> S) or q(S|S')
+                q_sp_s = (1.0 / len(removable_nodes))
+                # q(S -> S') or q(S'|S)
+                q_s_sp = (1.0 / len(add_nodes)) * (1.0 / 8.0)
+        elif move_type == 1: # remove move
+            # nodes to which we can add a branch in proposal
+            add_nodes = self._add_remove_branch_get_suitable_nodes(proposal.tree, 0)
+            # nodes we can remove in current state
+            removable_nodes = self._add_remove_branch_get_suitable_nodes(self.tree, 1)
+            if len(removable_nodes) > 0 and len(add_nodes) > 0:
+                # q(S' -> S) or q(S|S')
+                q_sp_s = (1.0 / len(add_nodes)) * (1.0 / 8.0)
+                # q(S -> S') or q(S'|S)
+                q_s_sp = (1.0 / len(removable_nodes))
+        else:
+            raise ValueError('move_type can only be 0 or 1')
+        
+        acc_prob = 1
+        
+        # prior terms contain prior probabilities for spatial model too, so
+        # in order to get back to Rational Rules prior we multiply with
+        # inverse of spatial model probabilities
+        acc_prob = acc_prob * proposal.prior * proposal.likelihood * q_sp_s * self.spatial_model.probability()
+        acc_prob = acc_prob / (self.prior * self.likelihood * q_s_sp * proposal.spatial_model.probability())
+        return acc_prob
+        
     
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -230,7 +345,7 @@ class AoMRShapeState(ShapeGrammarState):
     
     def __repr__(self):
         parts, positions = self.convert_to_parts_positions()
-        return "".join('(' + part + ')(' + repr(pos) + ')' for part, pos in zip(parts, positions) )
+        return "".join('({0:s})(x: {1:.4f}, y: {2:.4f}, z: {3:.4f})'.format(part, pos[0], pos[1], pos[2]) for part, pos in zip(parts, positions) )
         
     def __str__(self):
         return self.__repr__()
@@ -239,10 +354,15 @@ class AoMRShapeState(ShapeGrammarState):
         
 
 if __name__ == '__main__':
-    data = np.load('data/visual/1.npy')
-    params = {'b': 1750.0}
+    data = np.load('data/visual/2.npy')
+    params = {'b': 2000.0}
     forward_model = VisionForwardModel()
     #forward_model = HapticsForwardModel()
+    
+    part1 = 'Bottom0'
+    part2 = 'Front0'
+    part3 = 'Top0'
+    part4 = 'Ear1'
     
 #     # RANDOM STATE
 #     spatial_model = AoMRSpatialModel()
@@ -260,19 +380,19 @@ if __name__ == '__main__':
     # 1 part (ear) removed. Our purpose is to understand the b value we should set
     # to make sure correct configuration has the highest posterior.
     
-    
+     
     # Tree with 1 part
     t1 = Tree()
     t1.create_node(ParseNode('S', 8), identifier='S')
-    t1.create_node(ParseNode('Top0', ''), parent='S')
-     
+    t1.create_node(ParseNode(part4, ''), parent='S')
+    
     spatial_model1 = AoMRSpatialModel()
     voxels1 = {'S' : [0,0,0]}
     spatial_model1.voxels = voxels1
     spatial_model1._update_positions(t1)
-    
+       
     rrs = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model1, initial_tree=t1)
-     
+        
     print rrs
     print ('Prior: %g' % rrs.prior)
     print ('Likelihood: %g' % rrs.likelihood)
@@ -285,13 +405,13 @@ if __name__ == '__main__':
     t2.create_node(ParseNode('S', 6), parent='S', identifier='S1')
     t2.create_node(ParseNode('S', 0), parent='S', identifier='S2')
     t2.create_node(ParseNode('S', 1), parent='S', identifier='S3')
-    t2.create_node(ParseNode('Bottom0', ''), parent='S1', identifier='B0')
+    t2.create_node(ParseNode(part1, ''), parent='S1', identifier='B0')
     t2.create_node(ParseNode('S', 4), parent='S2', identifier='S4')
-    t2.create_node(ParseNode('Front0', ''), parent='S4', identifier='F0')
+    t2.create_node(ParseNode(part2, ''), parent='S4', identifier='F0')
     t2.create_node(ParseNode('S', 8), parent='S3', identifier='S5')
     t2.create_node(ParseNode('S', 10), parent='S3', identifier='S6')
-    t2.create_node(ParseNode('Top0', ''), parent='S5', identifier='T0')
-    t2.create_node(ParseNode('Ear0', ''), parent='S6', identifier='E0')
+    t2.create_node(ParseNode(part3, ''), parent='S5', identifier='T0')
+    t2.create_node(ParseNode(part4, ''), parent='S6', identifier='E0')
       
     spatial_model2 = AoMRSpatialModel()
     voxels2 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [0, 0, 1], 
@@ -305,34 +425,53 @@ if __name__ == '__main__':
     print ('Prior: %g' % rrs2.prior)
     print ('Likelihood: %g' % rrs2.likelihood)
     print ('Posterior: %g' % (rrs2.prior*rrs2.likelihood))
+    
+    if rrs2.likelihood < 1:
+        render = rrs2.render
+        import matplotlib.pyplot as pl
+        pl.figure()
+        pl.subplot(2,3,1)
+        pl.imshow(data[0,:,:], cmap='gray')
+        pl.subplot(2,3,2)
+        pl.imshow(data[1,:,:], cmap='gray')
+        pl.subplot(2,3,3)
+        pl.imshow(data[2,:,:], cmap='gray')
+        pl.subplot(2,3,4)
+        pl.imshow(render[0,:,:], cmap='gray')
+        pl.subplot(2,3,5)
+        pl.imshow(render[1,:,:], cmap='gray')
+        pl.subplot(2,3,6)
+        pl.imshow(render[2,:,:], cmap='gray')
+        pl.show()
+
     rrs2.tree.show()
-     
+      
     # tree with 1 part missing
     t3 = Tree()
     t3.create_node(ParseNode('S', 2), identifier='S')
     t3.create_node(ParseNode('S', 6), parent='S', identifier='S1')
     t3.create_node(ParseNode('S', 0), parent='S', identifier='S2')
     t3.create_node(ParseNode('S', 0), parent='S', identifier='S3')
-    t3.create_node(ParseNode('Bottom0', ''), parent='S1', identifier='B0')
+    t3.create_node(ParseNode(part1, ''), parent='S1', identifier='B0')
     t3.create_node(ParseNode('S', 4), parent='S2', identifier='S4')
-    t3.create_node(ParseNode('Front0', ''), parent='S4', identifier='F0')
+    t3.create_node(ParseNode(part2, ''), parent='S4', identifier='F0')
     t3.create_node(ParseNode('S', 8), parent='S3', identifier='S5')
-    t3.create_node(ParseNode('Top0', ''), parent='S5', identifier='T0')
-      
+    t3.create_node(ParseNode(part3, ''), parent='S5', identifier='T0')
+       
     spatial_model3 = AoMRSpatialModel()
     voxels3 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [0, 0, 1], 
                'S5' : [-1, 0, 0], 'S4' : [0, 0, 1]}
     spatial_model3.voxels = voxels3
     spatial_model3._update_positions(t3)
-           
-    rrs3 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model3, initial_tree=t3)
     
+    rrs3 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model3, initial_tree=t3)
+     
     print rrs3
     print ('Prior: %g' % rrs3.prior)
     print ('Likelihood: %g' % rrs3.likelihood)
     print ('Posterior: %g' % (rrs3.prior*rrs3.likelihood))
     rrs3.tree.show()
-        
+         
 #     # tree with only bottom and ear
 #     t4 = Tree()
 #     t4.create_node(ParseNode('S', 3), identifier='S')
@@ -365,72 +504,72 @@ if __name__ == '__main__':
     t5 = Tree()
     t5.create_node(ParseNode('S', 0), identifier='S')
     t5.create_node(ParseNode('S', 0), parent='S', identifier='S1')
-    t5.create_node(ParseNode('Bottom0', ''), parent='S1', identifier='B0')
-     
+    t5.create_node(ParseNode(part1, ''), parent='S1', identifier='B0')
+      
     spatial_model5 = AoMRSpatialModel()
     voxels5 = {'S' : [0,0,0], 'S1' : [0, 0, -1]}
     spatial_model5.voxels = voxels5
     spatial_model5._update_positions(t5)
-       
+        
     rrs5 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model5, initial_tree=t5)
-    
+     
     print rrs5
     print ('Prior: %g' % rrs5.prior)
     print ('Likelihood: %g' % rrs5.likelihood)
     print ('Posterior: %g' % (rrs5.prior*rrs5.likelihood))
     rrs5.tree.show()
-      
+       
     # tree with only bottom and front
     t6 = Tree()
     t6.create_node(ParseNode('S', 1), identifier='S')
     t6.create_node(ParseNode('S', 6), parent='S', identifier='S1')
     t6.create_node(ParseNode('S', 0), parent='S', identifier='S2')
-    t6.create_node(ParseNode('Bottom0', ''), parent='S1', identifier='B0')
+    t6.create_node(ParseNode(part1, ''), parent='S1', identifier='B0')
     t6.create_node(ParseNode('S', 4), parent='S2', identifier='S4')
-    t6.create_node(ParseNode('Front0', ''), parent='S4', identifier='F0')
-     
+    t6.create_node(ParseNode(part2, ''), parent='S4', identifier='F0')
+      
     spatial_model6 = AoMRSpatialModel()
     voxels6 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S4' : [0, 0, 1]}
     spatial_model6.voxels = voxels6
     spatial_model6._update_positions(t6)
-           
+            
     rrs6 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model6, initial_tree=t6)
-    
+     
     print rrs6
     print ('Prior: %g' % rrs6.prior)
     print ('Likelihood: %g' % rrs6.likelihood)
     print ('Posterior: %g' % (rrs6.prior*rrs6.likelihood))
     rrs6.tree.show()
-    
+     
     # front part slightly mislocated
     t7 = Tree()
     t7.create_node(ParseNode('S', 2), identifier='S')
     t7.create_node(ParseNode('S', 6), parent='S', identifier='S1')
     t7.create_node(ParseNode('S', 4), parent='S', identifier='S2')
     t7.create_node(ParseNode('S', 1), parent='S', identifier='S3')
-    t7.create_node(ParseNode('Bottom0', ''), parent='S1', identifier='B0')
-    t7.create_node(ParseNode('Front0', ''), parent='S2', identifier='F0')
+    t7.create_node(ParseNode(part1, ''), parent='S1', identifier='B0')
+    t7.create_node(ParseNode(part2, ''), parent='S2', identifier='F0')
     t7.create_node(ParseNode('S', 8), parent='S3', identifier='S5')
     t7.create_node(ParseNode('S', 10), parent='S3', identifier='S6')
-    t7.create_node(ParseNode('Top0', ''), parent='S5', identifier='T0')
-    t7.create_node(ParseNode('Ear0', ''), parent='S6', identifier='E0')
-      
+    t7.create_node(ParseNode(part3, ''), parent='S5', identifier='T0')
+    t7.create_node(ParseNode(part4, ''), parent='S6', identifier='E0')
+       
     spatial_model7 = AoMRSpatialModel()
     voxels7 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [0, 0, 1], 
                'S5' : [-1, 0, 0], 'S6' : [-1, 0, 1]}
     spatial_model7.voxels = voxels7
     spatial_model7._update_positions(t7)
-       
+        
     rrs7 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, spatial_model=spatial_model7, initial_tree=t7)
-    
+     
     print rrs7
     print ('Prior: %g' % rrs7.prior)
     print ('Likelihood: %g' % rrs7.likelihood)
     print ('Posterior: %g' % (rrs7.prior*rrs7.likelihood))
     rrs7.tree.show()
-     
+      
     #forward_model._view(rrs7)
-    
+     
     print('Posteriors')
     print ('1 No parts: %g' % (rrs.prior*rrs.likelihood))
     print ('2 Veridical: %g' % (rrs2.prior*rrs2.likelihood))
@@ -438,7 +577,7 @@ if __name__ == '__main__':
     print ('4 Bottom: %g' % (rrs5.prior*rrs5.likelihood))
     print ('5 Bottom, Front: %g' % (rrs6.prior*rrs6.likelihood))
     print ('6 Mislocated: %g' % (rrs7.prior*rrs7.likelihood))
-    
+     
     print('Acceptance Probabilities')
     print ('Acceptance Prob 1-2: %f' % rrs._subtree_acceptance_probability(rrs2))
     print ('Acceptance Prob 1-3: %f' % rrs._subtree_acceptance_probability(rrs3))

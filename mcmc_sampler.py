@@ -131,7 +131,7 @@ class MCMCSampler:
         results = MCMCRunResults(self.info, self.state.__class__, self.sampler_params)
         for i in range(self.run_count):
             # reinitialize starting state for next run
-            next_initial_state = self.state.moves[0]()
+            next_initial_state, acc_prob = self.state.moves[0]()
         
             results.initial_states[i] = deepcopy(self.state)
             samp, best_samp, acceptance_rate = self._run_once()
@@ -163,16 +163,19 @@ class MCMCSampler:
         for i in range(self.iter_count):
             
             if i > self.burn_in and i%self.thinning_period == 0:
-                self.samples.append(MCMCSample(i, self.state, self.state.prior*self.state.likelihood, self.state.moves[last_move].__name__))
-                
-            if self.verbose:
-                if i%20 == 0:
-                    print "Drawing sample " + repr(i)
-                    
+                sample = MCMCSample(i, self.state, self.state.prior*self.state.likelihood, self.state.moves[last_move].__name__)
+                self.samples.append(sample)
+                if self.verbose:
+                    print '\Sample: Adding {0:s}'.format(sample)
+                            
             if self.random_move is True:
                 chosen_move = np.random.choice(move_count, p=self.move_probabilities)
             else:
                 chosen_move = current_move
+            
+            if self.verbose:
+                if i%20 == 0:
+                    print "Drawing sample {0:d} (move: {1:s})".format(i, self.state.moves[chosen_move].__name__)
             
             proposed_state, acceptance_prob = self.state.moves[chosen_move]()
             
@@ -190,7 +193,8 @@ class MCMCSampler:
                         # add this sample if we don't have it already in best samples
                         sample = MCMCSample(i, self.state, posterior, move_name)
                         if sample not in self.best_samples:
-                            print '\tAdding sample to best samples'
+                            if self.verbose:
+                                print '\tBest Sample: Adding {0:s}'.format(sample)
                             # find the index to which we need to insert this sample
                             ix = np.argwhere(posterior>self.best_probs)
                             if ix.size == 0:
@@ -204,9 +208,9 @@ class MCMCSampler:
                             if len(self.best_samples) > self.keep_top_n:
                                 self.best_probs.pop()
                                 self.best_samples.pop()
-                else:
-                    # if not accepted, choose next move
-                    current_move = (current_move + 1) % move_count
+            else:
+                # if not accepted, choose next move
+                current_move = (current_move + 1) % move_count
         
         acceptance_rate = float(accepted) / self.iter_count
         return self.samples, self.best_samples, acceptance_rate
