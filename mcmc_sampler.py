@@ -156,6 +156,10 @@ class MCMCSampler:
         del self.best_samples[:]
         del self.samples[:]
         
+        # DEBUG CODE
+        history = []
+        # ------------------------------
+        
         move_count = len(self.state.moves)
         current_move = 0
         last_move = 0
@@ -180,6 +184,13 @@ class MCMCSampler:
             proposed_state, acceptance_prob = self.state.moves[chosen_move]()
             
             if np.random.rand() < acceptance_prob:
+                # DEBUG CODE
+                history.insert(0, copy(self.state), )
+                if len(history) > 30:
+                    history.pop()
+                if proposed_state.prior * proposed_state.likelihood > 1E-20:
+                    print('Done')
+                # --------------------------------
                 # record the move that got us here
                 last_move = chosen_move
                 move_name = self.state.moves[last_move].__name__

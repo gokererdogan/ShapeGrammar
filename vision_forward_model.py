@@ -14,9 +14,9 @@ import matplotlib.pyplot as pl
 # Part positions in actual objects (given in meters)
 # taken from correct AoMRShapeGrammar representation for an object, 
 actual_positions = {'Bottom0': [0.0, 0.0, -0.02280], 'Bottom1': [0.0, 0.0, -0.02280],
-                    'Front0': [0.05346666666666666, 0.0, 0.0076], 'Front1': [0.05346666666666666, 0.0, 0.0076], 
-                    'Ear0': [-0.017822222222222222, 0.0, 0.0304], 'Ear1': [-0.017822222222222222, 0.0, 0.0304], 
-                    'Top0': [-0.017822222222222222, 0.0, 0.0228], 'Top1': [-0.017822222222222222, 0.0, 0.0228]}
+                    'Front0': [0.04, 0.0, 0.0], 'Front1': [0.04, 0.0, 0.0], 
+                    'Ear0': [-0.0266666, 0.0, 0.0304], 'Ear1': [-0.0266666, 0.0, 0.0304], 
+                    'Top0': [-0.04, 0.0, 0.0228], 'Top1': [-0.04, 0.0, 0.0228]}
 
 # taken from 3D model files
 # actual_positions = {'Bottom0' : (-.0025, 0, -.0228), 'Bottom1' : (-.0025, 0, -.0228), 

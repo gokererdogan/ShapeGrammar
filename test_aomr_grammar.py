@@ -37,7 +37,9 @@ ss = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params,
                     spatial_model=spatial_model, initial_tree=t)
 
 # propose new state using add branch move
-nss, acc_prob = ss.add_remove_branch_proposal()
+# nss, acc_prob = ss.add_remove_branch_proposal()
+# propose new state using change part move
+nss, acc_prob = ss.change_part_proposal()
 nss.tree.show()
 print acc_prob
 forward_model._view(nss)
