@@ -159,7 +159,8 @@ class AoMRShapeState(ShapeGrammarState):
         Note that the first parameter ``grammar`` of base class AoMRShapeState is removed because 
         this class is a grammar specific implementation
         """
-        self.moves = [self.subtree_proposal, self.add_remove_branch_proposal, self.change_part_proposal]
+        self.moves = [self.subtree_proposal, self.add_remove_branch_proposal, 
+                      self.change_part_proposal, self.refine_part_position_proposal]
         ShapeGrammarState.__init__(self, grammar=aomr_shape_pcfg, forward_model=forward_model, 
                                    data=data, ll_params=ll_params, spatial_model=spatial_model, 
                                    initial_tree=initial_tree)
@@ -353,6 +354,130 @@ class AoMRShapeState(ShapeGrammarState):
         acc_prob = acc_prob * proposal.prior * proposal.likelihood * self.spatial_model.probability()
         acc_prob = acc_prob / (self.prior * self.likelihood * proposal.spatial_model.probability())
         return proposal, acc_prob    
+    
+    def refine_part_position_proposal(self):
+        """
+        Proposes a new state based on current state using refine part position move
+        First choose randomly if we are doing an add or remove move
+        If add move: finds all part nodes, choose one randomly and add a new S
+            node as its parent. 
+            This move refines the position of part by moving it one level deeper in 
+            tree, hence specifying its location in a finer level of granularity
+        If remove move: finds all P nodes whose father S node is the only child of
+            its parent. Choose one randomly and remove its parent node. 
+            This moves corresponds to specifying the position of the part in a 
+            coarser level of granularity
+        """
+        proposal_tree = deepcopy(self.tree)
+        which_move = np.random.rand()
+        move_type = -1
+        if which_move < .5: # add move
+            move_type = 0
+            # find a suitable S node
+            suitable_nodes = self._refine_part_position_get_suitable_nodes(proposal_tree, move_type)
+            
+            # if there are nodes to choose from, else do nothing
+            if len(suitable_nodes) > 0:
+                # choose one of the suitable nodes randomly
+                chosen_node_id = np.random.choice(suitable_nodes)
+                parent_id = proposal_tree[chosen_node_id].bpointer
+                rule = proposal_tree[parent_id].tag.rule
+                
+                # add the new S branch and connect the part to it
+                new_snode = proposal_tree.create_node(tag=ParseNode('S', rule), parent=parent_id)
+                proposal_tree.move_node(chosen_node_id, new_snode.identifier)
+                
+                # change the production rule used in node's grandparent
+                proposal_tree[parent_id].tag.rule = 0
+        else: # remove move
+            move_type = 1
+            suitable_remove_nodes = self._refine_part_position_get_suitable_nodes(proposal_tree, move_type)
+            
+            # if we have nodes to choose from, else do nothing
+            if len(suitable_remove_nodes) > 0:
+                # choose one of the suitable nodes for removal
+                chosen_node_id = np.random.choice(suitable_remove_nodes)
+                parent_node_id = proposal_tree[chosen_node_id].bpointer
+                grandparent_node_id = proposal_tree[parent_node_id].bpointer
+                
+                # connect part node to its grandparent
+                proposal_tree.move_node(chosen_node_id, grandparent_node_id)
+                # change the production rule used in its grandparent
+                proposal_tree[grandparent_node_id].tag.rule = proposal_tree[parent_node_id].tag.rule
+                # remove S node
+                proposal_tree.remove_node(parent_node_id)
+            
+        # get a new spatial model based on proposed tree
+        proposed_spatial_model = self.spatial_model.propose(proposal_tree, self.grammar)
+        proposal = self.__class__(forward_model=self.forward_model, data=self.data, ll_params=self.ll_params, 
+                                  spatial_model=proposed_spatial_model, initial_tree=proposal_tree)
+        
+        # get acceptance probability
+        acc_prob = self._refine_part_position_acceptance_probability(proposal, move_type)
+        return proposal, acc_prob
+    
+    def _refine_part_position_get_suitable_nodes(self, proposal_tree, move_type):
+        """
+        Gets nodes that can be removed or added for refine part position move depending
+        on move_type parameter
+        """
+        suitable_nodes = []
+        if move_type == 0: # add move
+            for node in proposal_tree.expand_tree(mode=Tree.WIDTH):
+                # if node is a terminal
+                if proposal_tree[node].tag.symbol in self.grammar.terminals:
+                    suitable_nodes.append(node)
+        elif move_type == 1: # remove move
+            # find nodes that can be removed
+            for node in proposal_tree.expand_tree(mode=Tree.WIDTH):
+                # if node is a leaf and it grandparent has only one child
+                if proposal_tree[node].tag.symbol in self.grammar.terminals and \
+                    proposal_tree[proposal_tree[node].bpointer].bpointer is not None and \
+                    len(proposal_tree[proposal_tree[proposal_tree[node].bpointer].bpointer].fpointer) == 1:
+                    suitable_nodes.append(node)
+        else:
+            raise ValueError('move_type can only be 0 or 1')
+        
+        return suitable_nodes
+    
+    def _refine_part_position_acceptance_probability(self, proposal, move_type):
+        """
+        Acceptance probability for refine part position move
+        """
+        # proposal probabilities
+        q_sp_s = 1
+        q_s_sp = 1
+        if move_type == 0: # add move
+            # number of branches we can remove in proposal
+            removable_nodes = self._refine_part_position_get_suitable_nodes(proposal.tree, 1)
+            # nodes to which we can add a branch in current state
+            add_nodes = self._refine_part_position_get_suitable_nodes(self.tree, 0)
+            if len(removable_nodes) > 0 and len(add_nodes) > 0:
+                # q(S' -> S) or q(S|S')
+                q_sp_s = (1.0 / len(removable_nodes))
+                # q(S -> S') or q(S'|S)
+                q_s_sp = (1.0 / len(add_nodes))
+        elif move_type == 1: # remove move
+            # nodes to which we can add a branch in proposal
+            add_nodes = self._refine_part_position_get_suitable_nodes(proposal.tree, 0)
+            # nodes we can remove in current state
+            removable_nodes = self._refine_part_position_get_suitable_nodes(self.tree, 1)
+            if len(removable_nodes) > 0 and len(add_nodes) > 0:
+                # q(S' -> S) or q(S|S')
+                q_sp_s = (1.0 / len(add_nodes))
+                # q(S -> S') or q(S'|S)
+                q_s_sp = (1.0 / len(removable_nodes))
+        else:
+            raise ValueError('move_type can only be 0 or 1')
+        
+        acc_prob = 1
+        
+        # prior terms contain prior probabilities for spatial model too, so
+        # in order to get back to Rational Rules prior we multiply with
+        # inverse of spatial model probabilities
+        acc_prob = acc_prob * proposal.prior * proposal.likelihood * q_sp_s * self.spatial_model.probability()
+        acc_prob = acc_prob / (self.prior * self.likelihood * q_s_sp * proposal.spatial_model.probability())
+        return acc_prob
     
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -564,9 +689,9 @@ if __name__ == '__main__':
     print ('Acceptance Prob 2-4: %f' % rrs2._subtree_acceptance_probability(rrs4))
     print ('Acceptance Prob 2-5: %f' % rrs2._subtree_acceptance_probability(rrs5))
     print ('Acceptance Prob 3-4: %f' % rrs3._subtree_acceptance_probability(rrs4))
-    print ('Acceptance Prob 3-5: %f' % rrs3._subtree_acceptance_probability(rrs5))
-    print ('Acceptance Prob 4-5: %f' % rrs5._subtree_acceptance_probability(rrs5))
-    
+    print ('Acceptance Prob 3-5: %f' % rrs3._refine_part_position_acceptance_probability(rrs5, 0))
+    print ('Acceptance Prob 4-5: %f' % rrs4._subtree_acceptance_probability(rrs5))
+    print((rrs.prior*rrs.likelihood)/(rrs2.prior*rrs2.likelihood))
 #     forward_model._view(rrs)
 #     forward_model._view(rrs2)
 #     forward_model._view(rrs3)

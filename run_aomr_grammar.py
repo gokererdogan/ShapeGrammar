@@ -32,7 +32,8 @@ if __name__ == '__main__':
                  'keep_top_n' : 20, 
                  'burn_in' : 0,
                  'thinning_period' : 400,
-                 'random_move' : False,
+                 'random_move' : True,
+                 'move_probabilities' : [.1, .2, .2, .5],
                  'results_folder' : './',
                  'save_results' : True,
                  'verbose': True}
