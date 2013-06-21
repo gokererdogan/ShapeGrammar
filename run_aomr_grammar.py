@@ -16,17 +16,17 @@ if __name__ == '__main__':
     # 3: AoMR_Shape_Grammar_-_Visual_Condition20130618142453
     
     spatial_model = AoMRSpatialModel()
-    forward_model = VisionForwardModel()
-    data = np.load('data/visual/1.npy')
+    forward_model = VisionForwardModel(body_fixed=False)
+    data = np.load('data/visual/16.npy')
     # b parameter for objects
-    # obj1: 1600
+    # obj1: 1200
     # obj2: 2000
     # obj3: 2600
-    # obj16: 2400
+    # obj16: 1200
     state_params = {'b': 1200.0}
     init_state = AoMRShapeState(forward_model=forward_model, data=data, 
                                 ll_params=state_params, spatial_model=spatial_model)
-    sampler_params ={'info' : 'AoMRShapeGrammar Visual Obj1', 
+    sampler_params ={'info' : 'AoMRShapeGrammar Visual Obj16', 
                  'runs' : 1,
                  'iters' : 10000, 
                  'keep_top_n' : 20, 

@@ -16,7 +16,8 @@ import matplotlib.pyplot as pl
 actual_positions = {'Bottom0': [0.0, 0.0, -0.02280], 'Bottom1': [0.0, 0.0, -0.02280],
                     'Front0': [0.04, 0.0, 0.0], 'Front1': [0.04, 0.0, 0.0], 
                     'Ear0': [-0.0266666, 0.0, 0.0304], 'Ear1': [-0.0266666, 0.0, 0.0304], 
-                    'Top0': [-0.04, 0.0, 0.0228], 'Top1': [-0.04, 0.0, 0.0228]}
+                    'Top0': [-0.04, 0.0, 0.0228], 'Top1': [-0.04, 0.0, 0.0228],
+                    'Body': [0, 0, 0]}
 
 # taken from 3D model files
 # actual_positions = {'Bottom0' : (-.0025, 0, -.0228), 'Bottom1' : (-.0025, 0, -.0228), 
@@ -39,7 +40,11 @@ class VisionForwardModel():
     camera_pos = [(.18, 0.0, 0.0), (0.0, -.30, 0.0), (0.0, 0.0, .30)] 
     camera_up = [(0, 0, 1), (0, 0, 1), (0, 1, 0)] # upward direction for each viewpoint
     render_size = (200, 200)
-    def __init__(self):
+    def __init__(self, body_fixed=True):
+        """
+        body_fixed: if true Body part is automatically placed at origin
+        """
+        self.body_fixed = body_fixed
         # vtk objects for rendering
         self.vtkrenderer = vtk.vtkRenderer()
         
@@ -69,11 +74,12 @@ class VisionForwardModel():
             self.vtkpolydata[part] = self.vtkreader[part].GetOutput()
             self.vtkmapper[part] = vtk.vtkPolyDataMapper()
             self.vtkmapper[part].SetInput(self.vtkpolydata[part])
-        # actor for body part (every object has part named body at origin)
-        self.vtkbodyactor = vtk.vtkActor()
-        self.vtkbodyactor.SetMapper(self.vtkmapper['Body'])
-        self.vtkbodyactor.SetPosition(0, 0, 0)
-        
+        if self.body_fixed:
+            # actor for body part (every object has part named body at origin)
+            self.vtkbodyactor = vtk.vtkActor()
+            self.vtkbodyactor.SetMapper(self.vtkmapper['Body'])
+            self.vtkbodyactor.SetPosition(0, 0, 0)
+            
     
     def render(self, *args):
         """
@@ -121,8 +127,9 @@ class VisionForwardModel():
         # clear scene
         self.vtkrenderer.RemoveAllViewProps()
         self.vtkrenderer.Clear()
-        # add body
-        self.vtkrenderer.AddActor(self.vtkbodyactor)
+        if self.body_fixed:
+            # add body
+            self.vtkrenderer.AddActor(self.vtkbodyactor)
         for part, position in zip(parts, positions):
             actor = vtk.vtkActor()
             actor.SetMapper(self.vtkmapper[part])

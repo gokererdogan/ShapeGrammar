@@ -17,19 +17,19 @@ from copy import deepcopy
 """
 Definition of AoMR Probabilistic Context Free Shape Grammar
 """
-terminals = ['Front0', 'Front1', 'Bottom0', 'Bottom1', 'Top0', 'Top1', 'Ear0', 'Ear1']
+terminals = ['Body', 'Front0', 'Front1', 'Bottom0', 'Bottom1', 'Top0', 'Top1', 'Ear0', 'Ear1']
 nonterminals = ['S', 'P']
 start_symbol = 'S'
 rules = {'S' : [['S'], ['S', 'S'], ['S', 'S', 'S'], ['S', 'S', 'S', 'S'], 
                 ['P'], ['P', 'S'], ['P', 'S', 'S'], ['P', 'S', 'S', 'S']],
-        'P' : [['Front0'], ['Front1'], ['Bottom0'], ['Bottom1'], ['Top0'], ['Top1'], ['Ear0'], ['Ear1']], }
+        'P' : [['Body'], ['Front0'], ['Front1'], ['Bottom0'], ['Bottom1'], ['Top0'], ['Top1'], ['Ear0'], ['Ear1']], }
 prod_probabilities = {'S' : [1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0],
-                      'P' : [1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0, 1/8.0]}
+                      'P' : [1/9.0, 1/9.0, 1/9.0, 1/9.0, 1/9.0, 1/9.0, 1/9.0, 1/9.0, 1/9.0]}
 # id of rules that produce only terminals for each nonterminal
 # this is used for stopping tree from growing without bound and
 # enforcing a depth limit
 # 
-terminating_rule_ids = {'S' : [4], 'P' : [0, 1, 2, 3, 4 ,5 ,6, 7]}
+terminating_rule_ids = {'S' : [4], 'P' : [0, 1, 2, 3, 4 ,5 ,6, 7, 8]}
 
 aomr_shape_pcfg = PCFG(terminals, nonterminals, start_symbol, rules, prod_probabilities, terminating_rule_ids)
 
@@ -533,15 +533,15 @@ class AoMRShapeState(ShapeGrammarState):
         
 
 if __name__ == '__main__':
-    data = np.load('data/visual/1.npy')
+    data = np.load('data/visual/16.npy')
     params = {'b': 1200.0}
-    forward_model = VisionForwardModel()
+    forward_model = VisionForwardModel(body_fixed=False)
     #forward_model = HapticsForwardModel()
     
-    part1 = 'Bottom0'
-    part2 = 'Front0'
-    part3 = 'Top0'
-    part4 = 'Ear0'
+    part1 = 'Bottom1'
+    part2 = 'Front1'
+    part3 = 'Top1'
+    part4 = 'Ear1'
     
 #     # RANDOM STATE
 #     spatial_model = AoMRSpatialModel()
@@ -563,7 +563,7 @@ if __name__ == '__main__':
     t1 = Tree()
     t1.create_node(ParseNode('S', 4), identifier='S')
     t1.create_node(ParseNode('P', 6), identifier='P', parent='S')
-    t1.create_node(ParseNode(part4, ''), parent='P')
+    t1.create_node(ParseNode('Body', ''), parent='P')
     
     spatial_model1 = AoMRSpatialModel()
     voxels1 = {'S' : [0,0,0]}
@@ -580,15 +580,17 @@ if __name__ == '__main__':
      
     # correct tree
     t2 = Tree()
-    t2.create_node(ParseNode('S', 2), identifier='S')
+    t2.create_node(ParseNode('S', 7), identifier='S')
     t2.create_node(ParseNode('S', 4), parent='S', identifier='S1')
     t2.create_node(ParseNode('S', 4), parent='S', identifier='S2')
     t2.create_node(ParseNode('S', 5), parent='S', identifier='S3')
-    t2.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
-    t2.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
-    t2.create_node(ParseNode('P', 4), identifier='P3', parent='S3')
+    t2.create_node(ParseNode('P', 0), identifier='P0', parent='S')
+    t2.create_node(ParseNode('Body', ''), identifier='B', parent='P0')
+    t2.create_node(ParseNode('P', 3), identifier='P1', parent='S1')
+    t2.create_node(ParseNode('P', 1), identifier='P2', parent='S2')
+    t2.create_node(ParseNode('P', 5), identifier='P3', parent='S3')
     t2.create_node(ParseNode('S', 4), identifier='S4', parent='S3')
-    t2.create_node(ParseNode('P', 6), identifier='P4', parent='S4')
+    t2.create_node(ParseNode('P', 7), identifier='P4', parent='S4')
     t2.create_node(ParseNode(part1, ''), parent='P1', identifier='B0')
     t2.create_node(ParseNode(part2, ''), parent='P2', identifier='F0')
     t2.create_node(ParseNode(part3, ''), parent='P3', identifier='T0')
@@ -609,31 +611,14 @@ if __name__ == '__main__':
     print ('Posterior: %g' % (rrs2.prior*rrs2.likelihood))
     rrs2.tree.show()
     
-#     if rrs2.likelihood < 1:
-#         render = rrs2.render
-#         import matplotlib.pyplot as pl
-#         pl.figure()
-#         pl.subplot(2,3,1)
-#         pl.imshow(data[0,:,:], cmap='gray')
-#         pl.subplot(2,3,2)
-#         pl.imshow(data[1,:,:], cmap='gray')
-#         pl.subplot(2,3,3)
-#         pl.imshow(data[2,:,:], cmap='gray')
-#         pl.subplot(2,3,4)
-#         pl.imshow(render[0,:,:], cmap='gray')
-#         pl.subplot(2,3,5)
-#         pl.imshow(render[1,:,:], cmap='gray')
-#         pl.subplot(2,3,6)
-#         pl.imshow(render[2,:,:], cmap='gray')
-#         pl.show()
-
-
     # bottom, front, top
     t3 = Tree()
-    t3.create_node(ParseNode('S', 2), identifier='S')
+    t3.create_node(ParseNode('S', 3), identifier='S')
     t3.create_node(ParseNode('S', 4), parent='S', identifier='S1')
     t3.create_node(ParseNode('S', 4), parent='S', identifier='S2')
     t3.create_node(ParseNode('S', 4), parent='S', identifier='S3')
+    t3.create_node(ParseNode('P', 0), identifier='P0', parent='S')
+    t3.create_node(ParseNode('Body', ''), identifier='B', parent='P0')
     t3.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
     t3.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
     t3.create_node(ParseNode('P', 4), identifier='P3', parent='S3')
@@ -655,11 +640,14 @@ if __name__ == '__main__':
     print ('Posterior: %g' % (rrs3.prior*rrs3.likelihood))
     rrs3.tree.show()
     
+    
     # bottom, front
     t4 = Tree()
     t4.create_node(ParseNode('S', 1), identifier='S')
     t4.create_node(ParseNode('S', 4), parent='S', identifier='S1')
     t4.create_node(ParseNode('S', 4), parent='S', identifier='S2')
+    t4.create_node(ParseNode('P', 0), identifier='P0', parent='S')
+    t4.create_node(ParseNode('Body', ''), identifier='B', parent='P0')
     t4.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
     t4.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
     t4.create_node(ParseNode(part1, ''), parent='P1', identifier='B0')
@@ -679,65 +667,20 @@ if __name__ == '__main__':
     print ('Posterior: %g' % (rrs4.prior*rrs4.likelihood))
     rrs4.tree.show()
     
-    # correct tree + front at origin
-    t5 = Tree()
-    t5.create_node(ParseNode('S', 7), identifier='S')
-    t5.create_node(ParseNode('S', 4), parent='S', identifier='S1')
-    t5.create_node(ParseNode('S', 4), parent='S', identifier='S2')
-    t5.create_node(ParseNode('S', 5), parent='S', identifier='S3')
-    t5.create_node(ParseNode('P', 0), identifier='P5', parent='S')
-    t5.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
-    t5.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
-    t5.create_node(ParseNode('P', 4), identifier='P3', parent='S3')
-    t5.create_node(ParseNode('S', 4), identifier='S4', parent='S3')
-    t5.create_node(ParseNode('P', 6), identifier='P4', parent='S4')
-    t5.create_node(ParseNode(part2, ''), parent='P5', identifier='F0_2')
-    t5.create_node(ParseNode(part1, ''), parent='P1', identifier='B0')
-    t5.create_node(ParseNode(part2, ''), parent='P2', identifier='F0')
-    t5.create_node(ParseNode(part3, ''), parent='P3', identifier='T0')
-    t5.create_node(ParseNode(part4, ''), parent='P4', identifier='E0')
-    
-    spatial_model5 = AoMRSpatialModel()
-    voxels5 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [-1, 0, 1], 
-               'S4' : [1, 0, 1]}
-    spatial_model5.voxels = voxels5
-    spatial_model5._update_positions(t5)
-    
-    rrs5 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, 
-                          spatial_model=spatial_model5, initial_tree=t5)
-    
-    print rrs5
-    print ('Prior: %g' % rrs5.prior)
-    print ('Likelihood: %g' % rrs5.likelihood)
-    print ('Posterior: %g' % (rrs5.prior*rrs5.likelihood))
-    rrs5.tree.show()
-    
-    ns, acc = rrs5.add_remove_part_proposal()
-    print(ns)
-    ns.tree.show()
-    print(acc)
-    forward_model._view(ns)
-    
     print('Posteriors')
     print ('1 No parts: %g' % (rrs.prior*rrs.likelihood))
     print ('2 Veridical: %g' % (rrs2.prior*rrs2.likelihood))
     print ('3 Bottom, Front, Top: %g' % (rrs3.prior*rrs3.likelihood))
     print ('4 Bottom, Front: %g' % (rrs4.prior*rrs4.likelihood))
-    print ('5 Veridical + Front: %g' % (rrs5.prior*rrs5.likelihood))
     
     print('Acceptance Probabilities')
     print ('Acceptance Prob 1-2: %f' % rrs._subtree_acceptance_probability(rrs2))
     print ('Acceptance Prob 1-3: %f' % rrs._subtree_acceptance_probability(rrs3))
     print ('Acceptance Prob 1-4: %f' % rrs._subtree_acceptance_probability(rrs4))
-    print ('Acceptance Prob 1-5: %f' % rrs._subtree_acceptance_probability(rrs5))
     print ('Acceptance Prob 2-3: %f' % rrs2._subtree_acceptance_probability(rrs3))
     print ('Acceptance Prob 2-4: %f' % rrs2._subtree_acceptance_probability(rrs4))
-    print ('Acceptance Prob 2-5: %f' % rrs2._add_remove_part_acceptance_probability(rrs4, 0))
     print ('Acceptance Prob 3-4: %f' % rrs3._subtree_acceptance_probability(rrs4))
-    print ('Acceptance Prob 3-5: %f' % rrs3._subtree_acceptance_probability(rrs5))
-    print ('Acceptance Prob 4-5: %f' % rrs4._subtree_acceptance_probability(rrs5))
-#     forward_model._view(rrs)
-#     forward_model._view(rrs2)
-#     forward_model._view(rrs3)
-#     forward_model._view(rrs4)
-    forward_model._view(rrs5)
+    forward_model._view(rrs)
+    forward_model._view(rrs2)
+    forward_model._view(rrs3)
+    forward_model._view(rrs4)
