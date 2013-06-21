@@ -18,26 +18,45 @@ params = {'b': 1750.0}
 # initial state, object with bottom, front and top parts
 t = Tree()
 t.create_node(ParseNode('S', 2), identifier='S')
-t.create_node(ParseNode('S', 6), parent='S', identifier='S1')
-t.create_node(ParseNode('S', 0), parent='S', identifier='S2')
-t.create_node(ParseNode('S', 0), parent='S', identifier='S3')
-t.create_node(ParseNode('Bottom0', ''), parent='S1', identifier='B0')
-t.create_node(ParseNode('S', 4), parent='S2', identifier='S4')
-t.create_node(ParseNode('Front0', ''), parent='S4', identifier='F0')
-t.create_node(ParseNode('S', 8), parent='S3', identifier='S5')
-t.create_node(ParseNode('Top0', ''), parent='S5', identifier='T0')
-  
+t.create_node(ParseNode('S', 4), parent='S', identifier='S1')
+t.create_node(ParseNode('S', 4), parent='S', identifier='S2')
+t.create_node(ParseNode('S', 4), parent='S', identifier='S3')
+t.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
+t.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
+t.create_node(ParseNode('P', 4), identifier='P3', parent='S3')
+t.create_node(ParseNode('Bottom0', ''), parent='P1', identifier='B0')
+t.create_node(ParseNode('Front0', ''), parent='P2', identifier='F0')
+t.create_node(ParseNode('Top0', ''), parent='P3', identifier='T0')
+   
 spatial_model = AoMRSpatialModel()
-voxels = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [0, 0, 1], 
-           'S5' : [-1, 0, 0], 'S4' : [0, 0, 1]}
+voxels = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [-1, 0, 1]}
 spatial_model.voxels = voxels
 spatial_model._update_positions(t)
 
 ss = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params,
                     spatial_model=spatial_model, initial_tree=t)
 
-# propose new state using add branch move
-nss, acc_prob = ss.add_remove_branch_proposal()
+# # propose new state using add branch move
+# nss, acc_prob = ss.add_remove_branch_proposal()
+# nss.tree.show()
+# print acc_prob
+# forward_model._view(nss)
+# 
+# # propose new state using change part move
+# nss, acc_prob = ss.change_part_proposal()
+# nss.tree.show()
+# print acc_prob
+# forward_model._view(nss)
+
+# propose new state using change part move
+nss, acc_prob = ss.add_remove_part_proposal()
 nss.tree.show()
 print acc_prob
 forward_model._view(nss)
+
+
+# propose new state using refine part position move
+# nss, acc_prob = ss.refine_part_position_proposal()
+# nss.tree.show()
+# print acc_prob
+# forward_model._view(nss)

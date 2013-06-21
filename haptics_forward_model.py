@@ -17,7 +17,8 @@ import matplotlib.pyplot as pl
 actual_positions = {'Bottom0' : (-.0025, 0, -.0228), 'Bottom1' : (-.0025, 0, -.0228), 
                     'Front0' : (.0535, 0, .0054), 'Front1' : (.0535, 0, .0054),
                     'Top0' : (-.0191, 0, .0259), 'Top1' : (-.0191, 0, .0259),
-                    'Ear0' : (-.0237, 0, .0341), 'Ear1' : (-.0237, 0, .0341)}
+                    'Ear0' : (-.0237, 0, .0341), 'Ear1' : (-.0237, 0, .0341),
+                    'Body' : (0, 0, 0)}
 
 class HapticsForwardModel():
     """
@@ -42,7 +43,8 @@ class HapticsForwardModel():
     window_size = (200, 200)
     camera_pos = (.18, 0.0, 0.0) 
     camera_up = (0, 0, 1)
-    def __init__(self):
+    def __init__(self, body_fixed=True):
+        self.body_fixed = body_fixed
         # vtk objects for creating 3D scene
         self.vtkrenderer = vtk.vtkRenderer()
         self.vtkrenderer.SetBackground(1, 1, 1)
@@ -76,11 +78,12 @@ class HapticsForwardModel():
             self.vtkpolydata[part] = self.vtkfilter[part].GetOutput()
             self.vtkmapper[part] = vtk.vtkPolyDataMapper()
             self.vtkmapper[part].SetInput(self.vtkpolydata[part])
-        # actor for body part (every object has a part named body at origin)
-        self.vtkbodyactor = vtk.vtkActor()
-        self.vtkbodyactor.SetMapper(self.vtkmapper['Body'])
-        self.vtkbodyactor.SetPosition(0, 0, 0)
-        
+        if self.body_fixed:
+            # actor for body part (every object has a part named body at origin)
+            self.vtkbodyactor = vtk.vtkActor()
+            self.vtkbodyactor.SetMapper(self.vtkmapper['Body'])
+            self.vtkbodyactor.SetPosition(0, 0, 0)
+            
         self.graspit_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.graspit_socket.connect((self.graspit_tcp_ip, self.graspit_tcp_port))
         
@@ -101,7 +104,7 @@ class HapticsForwardModel():
         Returns numpy array with size number of joint angles (16)
         """
         if len(args) == 1: # called with AoMRShapeState object
-            parts, positions = self.__convert_aomr_shape_state_to_parts(args[0])
+            parts, positions = args[0].convert_to_parts_positions()
         elif len(args) == 2:
             parts, positions = args[0], args[1]
         else:
@@ -158,8 +161,9 @@ class HapticsForwardModel():
         """
         # clear scene
         self.vtkrenderer.RemoveAllViewProps()
-        # add body
-        self.vtkrenderer.AddActor(self.vtkbodyactor)
+        if self.body_fixed:
+            # add body
+            self.vtkrenderer.AddActor(self.vtkbodyactor)
         for part, position in zip(parts, positions):
             actor = vtk.vtkActor()
             actor.SetMapper(self.vtkmapper[part])
@@ -173,7 +177,7 @@ class HapticsForwardModel():
         Used for development and testing purposes
         """
         if len(args) == 1: # called with AoMRShapeState object
-            parts, positions = self.__convert_aomr_shape_state_to_parts(args[0])
+            parts, positions = args[0].convert_to_parts_positions()
         elif len(args) == 2:
             parts, positions = args[0], args[1]
         else:
