@@ -8,7 +8,7 @@ from mcmc_sampler import *
 from vision_forward_model import VisionForwardModel
 
 # load results
-fname = 'AoMRShapeGrammar_Visual_Obj120130620001945.mcmc'
+fname = 'AoMRShapeGrammar_Visual_Obj120130620205934.mcmc'
 f = open(fname)
 results = pickle.load(f)
 print results
