@@ -23,7 +23,7 @@ if __name__ == '__main__':
     # obj2: 2000
     # obj3: 2600
     # obj16: 2400
-    state_params = {'b': 1600.0}
+    state_params = {'b': 1200.0}
     init_state = AoMRShapeState(forward_model=forward_model, data=data, 
                                 ll_params=state_params, spatial_model=spatial_model)
     sampler_params ={'info' : 'AoMRShapeGrammar Visual Obj1', 
@@ -32,8 +32,7 @@ if __name__ == '__main__':
                  'keep_top_n' : 20, 
                  'burn_in' : 0,
                  'thinning_period' : 400,
-                 'random_move' : True,
-                 'move_probabilities' : [.1, .2, .2, .5],
+                 'random_move' : False,
                  'results_folder' : './',
                  'save_results' : True,
                  'verbose': True}
