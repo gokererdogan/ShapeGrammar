@@ -10,6 +10,7 @@ Created on Jun 4, 2013
 from pcfg_tree import PCFG, ParseNode, PCFGTree
 from shape_grammar import ShapeGrammarState, SpatialModel
 from vision_forward_model import VisionForwardModel
+from haptics_forward_model import HapticsForwardModel
 from treelib import Tree
 import numpy as np
 from copy import deepcopy
@@ -533,15 +534,20 @@ class AoMRShapeState(ShapeGrammarState):
         
 
 if __name__ == '__main__':
-    data = np.load('data/visual/16.npy')
+    data = np.load('data/visual/15.npy')
     params = {'b': 1200.0}
     forward_model = VisionForwardModel(body_fixed=False)
-    #forward_model = HapticsForwardModel()
+    #h_forward_model = HapticsForwardModel(body_fixed=False)
     
     part1 = 'Bottom1'
     part2 = 'Front1'
     part3 = 'Top1'
-    part4 = 'Ear1'
+    part4 = 'Ear0'
+    # wrong parts for this object
+    wpart1 = 'Bottom0'
+    wpart2 = 'Front0'
+    wpart3 = 'Top0'
+    wpart4 = 'Ear1'
     
 #     # RANDOM STATE
 #     spatial_model = AoMRSpatialModel()
@@ -551,8 +557,10 @@ if __name__ == '__main__':
 #     print ('Likelihood: %g' % rs.likelihood)
 #     print ('Posterior: %g' % (rs.prior*rs.likelihood))
 #     rs.tree.show()
-#      
+#       
 #     forward_model._view(rs)
+#     forward_model.save_image('random.png', rs)
+
 #     
     # TEST TREES: We look at the prior, likelihood and acceptance probabilities for
     # different trees. Our purpose is to understand the b value we should set
@@ -667,11 +675,128 @@ if __name__ == '__main__':
     print ('Posterior: %g' % (rrs4.prior*rrs4.likelihood))
     rrs4.tree.show()
     
+    # an arbitrary tree
+    t5 = Tree()
+    t5.create_node(ParseNode('S', 3), identifier='S')
+    t5.create_node(ParseNode('S', 4), parent='S', identifier='S1')
+    t5.create_node(ParseNode('S', 4), parent='S', identifier='S2')
+    t5.create_node(ParseNode('S', 4), parent='S', identifier='S3')
+    t5.create_node(ParseNode('P', 0), identifier='P0', parent='S')
+    t5.create_node(ParseNode('Body', ''), identifier='B', parent='P0')
+    t5.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
+    t5.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
+    t5.create_node(ParseNode('P', 4), identifier='P3', parent='S3')
+    t5.create_node(ParseNode(part2, ''), parent='P1', identifier='B0')
+    t5.create_node(ParseNode(part1, ''), parent='P2', identifier='F0')
+    t5.create_node(ParseNode(part3, ''), parent='P3', identifier='T0')
+       
+    spatial_model5 = AoMRSpatialModel()
+    voxels5 = {'S' : [0,0,0], 'S1' : [1, 0, 1], 'S2' : [0, 0, 1], 'S3' : [-1, 0, -1]}
+    spatial_model5.voxels = voxels5
+    spatial_model5._update_positions(t5)
+    
+    rrs5 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, 
+                          spatial_model=spatial_model5, initial_tree=t5)
+    rrs5.tree.show()
+    
+    # correct tree
+    t6 = Tree()
+    t6.create_node(ParseNode('S', 7), identifier='S')
+    t6.create_node(ParseNode('S', 4), parent='S', identifier='S1')
+    t6.create_node(ParseNode('S', 4), parent='S', identifier='S2')
+    t6.create_node(ParseNode('S', 5), parent='S', identifier='S3')
+    t6.create_node(ParseNode('P', 0), identifier='P0', parent='S')
+    t6.create_node(ParseNode('Body', ''), identifier='B', parent='P0')
+    t6.create_node(ParseNode('P', 3), identifier='P1', parent='S1')
+    t6.create_node(ParseNode('P', 1), identifier='P2', parent='S2')
+    t6.create_node(ParseNode('P', 5), identifier='P3', parent='S3')
+    t6.create_node(ParseNode('S', 4), identifier='S4', parent='S3')
+    t6.create_node(ParseNode('P', 7), identifier='P4', parent='S4')
+    t6.create_node(ParseNode(wpart1, ''), parent='P1', identifier='B0')
+    t6.create_node(ParseNode(wpart2, ''), parent='P2', identifier='F0')
+    t6.create_node(ParseNode(wpart3, ''), parent='P3', identifier='T0')
+    t6.create_node(ParseNode(wpart4, ''), parent='P4', identifier='E0')
+
+    spatial_model6 = AoMRSpatialModel()
+    voxels6 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [-1, 0, 1], 
+               'S4' : [1, 0, 1]}
+    spatial_model6.voxels = voxels6
+    spatial_model6._update_positions(t6)
+    
+    rrs6 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, 
+                          spatial_model=spatial_model6, initial_tree=t6)
+    
+    print rrs6
+    print ('Prior: %g' % rrs6.prior)
+    print ('Likelihood: %g' % rrs6.likelihood)
+    print ('Posterior: %g' % (rrs6.prior*rrs6.likelihood))
+    rrs6.tree.show()
+    
+    # bottom, front, top
+    t7 = Tree()
+    t7.create_node(ParseNode('S', 3), identifier='S')
+    t7.create_node(ParseNode('S', 4), parent='S', identifier='S1')
+    t7.create_node(ParseNode('S', 4), parent='S', identifier='S2')
+    t7.create_node(ParseNode('S', 4), parent='S', identifier='S3')
+    t7.create_node(ParseNode('P', 0), identifier='P0', parent='S')
+    t7.create_node(ParseNode('Body', ''), identifier='B', parent='P0')
+    t7.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
+    t7.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
+    t7.create_node(ParseNode('P', 4), identifier='P3', parent='S3')
+    t7.create_node(ParseNode(wpart1, ''), parent='P1', identifier='B0')
+    t7.create_node(ParseNode(wpart2, ''), parent='P2', identifier='F0')
+    t7.create_node(ParseNode(wpart3, ''), parent='P3', identifier='T0')
+     
+    spatial_model7 = AoMRSpatialModel()
+    voxels7 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0], 'S3' : [-1, 0, 1]}
+    spatial_model7.voxels = voxels7
+    spatial_model7._update_positions(t7)
+    
+    rrs7 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, 
+                          spatial_model=spatial_model7, initial_tree=t7)
+    
+    print rrs7
+    print ('Prior: %g' % rrs7.prior)
+    print ('Likelihood: %g' % rrs7.likelihood)
+    print ('Posterior: %g' % (rrs7.prior*rrs7.likelihood))
+    rrs7.tree.show()
+    
+    
+    # bottom, front
+    t8 = Tree()
+    t8.create_node(ParseNode('S', 1), identifier='S')
+    t8.create_node(ParseNode('S', 4), parent='S', identifier='S1')
+    t8.create_node(ParseNode('S', 4), parent='S', identifier='S2')
+    t8.create_node(ParseNode('P', 0), identifier='P0', parent='S')
+    t8.create_node(ParseNode('Body', ''), identifier='B', parent='P0')
+    t8.create_node(ParseNode('P', 2), identifier='P1', parent='S1')
+    t8.create_node(ParseNode('P', 0), identifier='P2', parent='S2')
+    t8.create_node(ParseNode(wpart1, ''), parent='P1', identifier='B0')
+    t8.create_node(ParseNode(wpart2, ''), parent='P2', identifier='F0')
+     
+    spatial_model8 = AoMRSpatialModel()
+    voxels8 = {'S' : [0,0,0], 'S1' : [0, 0, -1], 'S2' : [1, 0, 0]}
+    spatial_model8.voxels = voxels8
+    spatial_model8._update_positions(t8)
+    
+    rrs8 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, 
+                          spatial_model=spatial_model8, initial_tree=t8)
+    
+    print rrs8
+    print ('Prior: %g' % rrs8.prior)
+    print ('Likelihood: %g' % rrs8.likelihood)
+    print ('Posterior: %g' % (rrs8.prior*rrs8.likelihood))
+    rrs4.tree.show()
+    
     print('Posteriors')
     print ('1 No parts: %g' % (rrs.prior*rrs.likelihood))
     print ('2 Veridical: %g' % (rrs2.prior*rrs2.likelihood))
     print ('3 Bottom, Front, Top: %g' % (rrs3.prior*rrs3.likelihood))
     print ('4 Bottom, Front: %g' % (rrs4.prior*rrs4.likelihood))
+    print ('5 Arbitrary tree: %g' % (rrs5.prior*rrs5.likelihood))
+    print ('6 Veridical - wrong parts: %g' % (rrs6.prior*rrs6.likelihood))
+    print ('7 Bottom, Front, Top - wrong parts: %g' % (rrs7.prior*rrs7.likelihood))
+    print ('8 Bottom, Front - wrong parts: %g' % (rrs8.prior*rrs8.likelihood))
     
     print('Acceptance Probabilities')
     print ('Acceptance Prob 1-2: %f' % rrs._subtree_acceptance_probability(rrs2))
@@ -680,7 +805,4 @@ if __name__ == '__main__':
     print ('Acceptance Prob 2-3: %f' % rrs2._subtree_acceptance_probability(rrs3))
     print ('Acceptance Prob 2-4: %f' % rrs2._subtree_acceptance_probability(rrs4))
     print ('Acceptance Prob 3-4: %f' % rrs3._subtree_acceptance_probability(rrs4))
-    forward_model._view(rrs)
-    forward_model._view(rrs2)
-    forward_model._view(rrs3)
-    forward_model._view(rrs4)
+#     forward_model._view(rrs)

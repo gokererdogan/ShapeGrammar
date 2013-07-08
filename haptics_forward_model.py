@@ -14,11 +14,12 @@ import scipy.misc
 import matplotlib.pyplot as pl
 
 # Part positions in actual objects (given in meters)
-actual_positions = {'Bottom0' : (-.0025, 0, -.0228), 'Bottom1' : (-.0025, 0, -.0228), 
-                    'Front0' : (.0535, 0, .0054), 'Front1' : (.0535, 0, .0054),
-                    'Top0' : (-.0191, 0, .0259), 'Top1' : (-.0191, 0, .0259),
-                    'Ear0' : (-.0237, 0, .0341), 'Ear1' : (-.0237, 0, .0341),
-                    'Body' : (0, 0, 0)}
+actual_positions = {'Bottom0': [0.0, 0.0, -0.02280], 'Bottom1': [0.0, 0.0, -0.02280],
+                    'Front0': [0.04, 0.0, 0.0], 'Front1': [0.04, 0.0, 0.0], 
+                    'Ear0': [-0.0266666, 0.0, 0.0304], 'Ear1': [-0.0266666, 0.0, 0.0304], 
+                    'Top0': [-0.04, 0.0, 0.0228], 'Top1': [-0.04, 0.0, 0.0228],
+                    'Body': [0, 0, 0]}
+
 
 class HapticsForwardModel():
     """
@@ -31,9 +32,9 @@ class HapticsForwardModel():
     models_folder = './models/'
     graspit_tcp_ip = '0'
     graspit_tcp_port = 4765
-    graspit_objects_folder = "/home/goker/Graspit/models/objects/"
+    graspit_objects_folder = "/home/goker/Programs/Graspit/models/objects/"
     graspit_joint_count = 16
-    graspit_grasp_count = 8 # number of grasps that aomrGetJointAngles returns
+    graspit_grasp_count = 24 # number of grasps that aomrGetJointAngles returns
     vrml_filename = "obj.wrl"
     # 3D models of object parts are too small for GraspIt
     # we need to scale objects for them to be suitable for
@@ -129,8 +130,8 @@ class HapticsForwardModel():
         Returns a numpy array of size # of joint angles x # of grasps
         """
         # call aomrGetJointAngles, this command loads the object and
-        # returns joint angles for 8 grasps for each of which the object
-        # is rotated 45 deg around x axis
+        # returns joint angles for 24 grasps for each of which the object
+        # is rotated 45 deg around x, y, z axis
         data = self.__graspit_send_command('aomrGetJointAngles\n')
         if data[0:4] == 'FAIL':
             raise Exception('GraspIt returned error. Cannot get joint angles.')
@@ -151,7 +152,7 @@ class HapticsForwardModel():
         returns the response
         """
         self.graspit_socket.send(command)
-        data = self.graspit_socket.recv(1024)
+        data = self.graspit_socket.recv(4096)
         return data.rstrip()
     
     def __build_scene(self, parts, positions):
@@ -189,38 +190,38 @@ class HapticsForwardModel():
         
 if __name__ == '__main__':
     # ---------------------------------------------------------
-#    # show image and view 3D model for an object
-#    parts = ['Top0', 'Bottom0', 'Ear0', 'Front0']
-#    positions = [actual_positions['Top0'], actual_positions['Bottom0'],
-#               actual_positions['Ear0'], actual_positions['Front0']]
-#    forward_model = HapticsForwardModel()
-#    
-#    forward_model._view(parts, positions)
-#    np.set_printoptions(precision=3, linewidth=200)
-#    render = forward_model.render(parts, positions)
-#    print np.reshape(render, (8,16))
-#    np.save('1.npy', render)
-#    # ---------------------------------------------------------
-    # generate data for each object
-    objects = [['Bottom0', 'Front0', 'Top0', 'Ear0'], ['Bottom0', 'Front0', 'Top0', 'Ear1'],
-               ['Bottom0', 'Front0', 'Top1', 'Ear0'], ['Bottom0', 'Front0', 'Top1', 'Ear1'],
-               ['Bottom0', 'Front1', 'Top0', 'Ear0'], ['Bottom0', 'Front1', 'Top0', 'Ear1'],
-               ['Bottom0', 'Front1', 'Top1', 'Ear0'], ['Bottom0', 'Front1', 'Top1', 'Ear1'],
-               ['Bottom1', 'Front0', 'Top0', 'Ear0'], ['Bottom1', 'Front0', 'Top0', 'Ear1'],
-               ['Bottom1', 'Front0', 'Top1', 'Ear0'], ['Bottom1', 'Front0', 'Top1', 'Ear1'],
-               ['Bottom1', 'Front1', 'Top0', 'Ear0'], ['Bottom1', 'Front1', 'Top0', 'Ear1'],
-               ['Bottom1', 'Front1', 'Top1', 'Ear0'], ['Bottom1', 'Front1', 'Top1', 'Ear1']]
-    
+    # show image and view 3D model for an object
+    parts = ['Top0', 'Bottom0', 'Ear0', 'Front0']
+    positions = [actual_positions['Top0'], actual_positions['Bottom0'],
+               actual_positions['Ear0'], actual_positions['Front0']]
     forward_model = HapticsForwardModel()
-    
-    positions = []
-    for i, object in enumerate(objects):
-        del positions[:]
-        for part in object:
-            positions.append(actual_positions[part])
-            
-        render = forward_model.render(object, positions)
-        print render
-        np.save(repr(i+1) + '.npy', render)
-    
+     
+    forward_model._view(parts, positions)
+    np.set_printoptions(precision=3, linewidth=200)
+    render = forward_model.render(parts, positions)
+    print np.reshape(render, (24,16))
+    #np.save('1.npy', render)
     # ---------------------------------------------------------
+    # generate data for each object
+#     objects = [['Bottom0', 'Front0', 'Top0', 'Ear0'], ['Bottom0', 'Front0', 'Top0', 'Ear1'],
+#                ['Bottom0', 'Front0', 'Top1', 'Ear0'], ['Bottom0', 'Front0', 'Top1', 'Ear1'],
+#                ['Bottom0', 'Front1', 'Top0', 'Ear0'], ['Bottom0', 'Front1', 'Top0', 'Ear1'],
+#                ['Bottom0', 'Front1', 'Top1', 'Ear0'], ['Bottom0', 'Front1', 'Top1', 'Ear1'],
+#                ['Bottom1', 'Front0', 'Top0', 'Ear0'], ['Bottom1', 'Front0', 'Top0', 'Ear1'],
+#                ['Bottom1', 'Front0', 'Top1', 'Ear0'], ['Bottom1', 'Front0', 'Top1', 'Ear1'],
+#                ['Bottom1', 'Front1', 'Top0', 'Ear0'], ['Bottom1', 'Front1', 'Top0', 'Ear1'],
+#                ['Bottom1', 'Front1', 'Top1', 'Ear0'], ['Bottom1', 'Front1', 'Top1', 'Ear1']]
+#     
+#     forward_model = HapticsForwardModel()
+#     
+#     positions = []
+#     for i, object in enumerate(objects):
+#         del positions[:]
+#         for part in object:
+#             positions.append(actual_positions[part])
+#             
+#         render = forward_model.render(object, positions)
+#         print render
+#         np.save(repr(i+1) + '.npy', render)
+
+     # ---------------------------------------------------------

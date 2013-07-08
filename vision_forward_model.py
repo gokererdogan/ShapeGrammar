@@ -12,20 +12,11 @@ import scipy.misc
 import matplotlib.pyplot as pl
 
 # Part positions in actual objects (given in meters)
-# taken from correct AoMRShapeGrammar representation for an object, 
 actual_positions = {'Bottom0': [0.0, 0.0, -0.02280], 'Bottom1': [0.0, 0.0, -0.02280],
                     'Front0': [0.04, 0.0, 0.0], 'Front1': [0.04, 0.0, 0.0], 
                     'Ear0': [-0.0266666, 0.0, 0.0304], 'Ear1': [-0.0266666, 0.0, 0.0304], 
                     'Top0': [-0.04, 0.0, 0.0228], 'Top1': [-0.04, 0.0, 0.0228],
                     'Body': [0, 0, 0]}
-
-# taken from 3D model files
-# actual_positions = {'Bottom0' : (-.0025, 0, -.0228), 'Bottom1' : (-.0025, 0, -.0228), 
-#                     'Front0' : (.0535, 0, .0054), 'Front1' : (.0535, 0, .0054),
-#                     'Top0' : (-.0191, 0, .0259), 'Top1' : (-.0191, 0, .0259),
-#                     'Ear0' : (-.0237, 0, .0341), 'Ear1' : (-.0237, 0, .0341)}
-
-#
 
 
 class VisionForwardModel():
@@ -36,10 +27,11 @@ class VisionForwardModel():
     """
     parts = ['Body', 'Bottom0', 'Bottom1', 'Front0', 'Front1', 'Top0', 'Top1', 'Ear0', 'Ear1']
     models_folder = './models/'
-    #camera_pos = (.16, -.16, .16) canonical view
+    view_camera_pos = (.16, -.16, .16) #canonical view
     camera_pos = [(.18, 0.0, 0.0), (0.0, -.30, 0.0), (0.0, 0.0, .30)] 
     camera_up = [(0, 0, 1), (0, 0, 1), (0, 1, 0)] # upward direction for each viewpoint
     render_size = (200, 200)
+    save_image_size = (600, 600)
     def __init__(self, body_fixed=True):
         """
         body_fixed: if true Body part is automatically placed at origin
@@ -56,6 +48,11 @@ class VisionForwardModel():
             camera.SetFocalPoint(0, 0, 0);
             camera.SetViewUp(up);
             self.vtkcamera.append(camera);
+        
+        self.vtkviewcamera = vtk.vtkCamera();
+        self.vtkviewcamera.SetPosition(self.view_camera_pos);
+        self.vtkviewcamera.SetFocalPoint(0, 0, 0);
+        self.vtkviewcamera.SetViewUp(self.camera_up[0])
         
         self.vtkrender_window = vtk.vtkRenderWindow()
         self.vtkrender_window.AddRenderer(self.vtkrenderer)
@@ -147,9 +144,27 @@ class VisionForwardModel():
         elif len(args) == 2: # called directly with parts and positions
             parts, positions = args[0], args[1]
         self.__build_scene(parts, positions)
-        self.vtkrenderer.SetActiveCamera(self.vtkcamera[0]);
+        self.vtkrenderer.SetActiveCamera(self.vtkviewcamera);
         self.vtkrender_window.Render()
         self.vtkrender_window_interactor.Start()
+    
+    def save_image(self, filename, *args):
+        """
+        Save image of object from canonical view to disk
+        """
+        # called with ShapeState instance
+        if len(args) == 1:
+            parts, positions = args[0].convert_to_parts_positions()
+        elif len(args) == 2: # called directly with parts and positions
+            parts, positions = args[0], args[1]
+        img_arr = np.zeros((self.save_image_size[0], self.save_image_size[1]))
+        self.vtkrender_window.SetSize(self.save_image_size)
+        self.vtkrenderer.SetActiveCamera(self.vtkviewcamera);
+        self.__build_scene(parts, positions)
+        barr = self._render_window_to2D()
+        self.vtkrender_window.SetSize(self.render_size)
+        scipy.misc.imsave(filename, barr)
+    
         
 if __name__ == '__main__':
     #---------------------------------------------------------
