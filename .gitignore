@@ -1,3 +1,7 @@
 # ignore result files
 *.mcmc
 *.pyc
+# ignore image files
+*.png
+*.jpg
+*.gif
