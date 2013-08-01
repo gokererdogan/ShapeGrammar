@@ -26,7 +26,7 @@ class VisionForwardModel():
     and uses VTK to render 3D scene to 2D image
     """
     parts = ['Body', 'Bottom0', 'Bottom1', 'Front0', 'Front1', 'Top0', 'Top1', 'Ear0', 'Ear1']
-    models_folder = './models/'
+    models_folder = '/home/goker/Dropbox/Code/Eclipse/AoMRShapeGrammar/models/'
     view_camera_pos = (.16, -.16, .16) #canonical view
     camera_pos = [(.18, 0.0, 0.0), (0.0, -.30, 0.0), (0.0, 0.0, .30)] 
     camera_up = [(0, 0, 1), (0, 0, 1), (0, 1, 0)] # upward direction for each viewpoint
