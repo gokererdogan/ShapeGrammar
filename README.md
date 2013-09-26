@@ -1,1 +1,0 @@
-Shape Grammar Implementation for Part based Multisensory Shape Representations
