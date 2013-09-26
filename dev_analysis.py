@@ -8,26 +8,62 @@ from mcmc_sampler import *
 from vision_forward_model import VisionForwardModel
 
 # load results
-fname = 'AoMRShapeGrammar_Visual_Obj820130624004057.mcmc'
+fname = './results/AoMRShapeGrammar_Visual_Obj820130624004057.mcmc'
 f = open(fname)
 results = pickle.load(f)
-print results
-
-print(results.best_samples[0][0].state.ll_params)
+# print results
+best1 = results.best_samples[0][0].state
+print(best1)
+best1.tree.show()
 
 forward_model = VisionForwardModel()
 i = 0
 for sample in results.best_samples[0]:
-    sample.state.tree.show()
-    #forward_model._view(sample.state)
-    forward_model.save_image('best_sample'+str(i)+'.png', sample.state)
+    #sample.state.tree.show()
+    print(sample.posterior)
+    forward_model._view(sample.state)
     i += 1
 
-print('\n------------------------------------\nSamples')
-i = 0
-for sample in results.samples[0]:
-    #forward_model._view(sample.state)
-    sample.state.tree.show()
-    forward_model.save_image('sample'+str(i)+'.png', sample.state)
-    i += 1
+# load results
+fname = './results/AoMRShapeGrammar_Visual_Obj220130624001257.mcmc'
+f = open(fname)
+results = pickle.load(f)
+# print results
+best2 = results.best_samples[0][0].state
+print(best2)
+best2.tree.show()
+
+# load results
+fname = './results/AoMRShapeGrammar_Visual_Obj1020130708020033.mcmc'
+f = open(fname)
+results = pickle.load(f)
+# print results
+best3 = results.best_samples[0][0].state
+print(best3)
+best3.tree.show()
+
+print([(best1.tree[node].identifier, str(best1.tree[node].tag), best1.spatial_model.voxels.get(node)) for node in best1.tree.nodes])
+print(best1.spatial_model.voxels)
+print(best2.spatial_model.voxels)
+print(best3.spatial_model.voxels)
+
+print(best1.kernel_subtree(best2))
+print
+print(best1.kernel_subtree(best3))
+print
+print(best2.kernel_subtree(best3))
+# 
+# forward_model = VisionForwardModel()
+# i = 0
+# for sample in results.best_samples[0]:
+#     sample.state.tree.show()
+#     forward_model._view(sample.state)
+#     i += 1
+# 
+# print('\n------------------------------------\nSamples')
+# i = 0
+# for sample in results.samples[0]:
+#     forward_model._view(sample.state)
+#     sample.state.tree.show()
+#     i += 1
 

@@ -66,7 +66,7 @@ class MCMCRunResults:
         header = self.__repr__()
         body = ''
         for i in range(self.run_params['runs']):
-            body = '{0} Run {1}: (Acceptance Prob: {2:f}\n'.format(body, i, self.acceptance_rate[i])
+            body = '{0} Run {1}: (Acceptance Rate: {2:f}\n'.format(body, i, self.acceptance_rate[i])
             body = body + '\tSamples\n'
             for sample in self.samples[i]:
                 body = body + '\t\t' + repr(sample) + '\n'

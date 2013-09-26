@@ -53,6 +53,21 @@ if __name__ == '__main__':
     # haptic condition
     # b parameter for object
     # obj1: 6000
+    # obj2: 9000
+    # obj3: 6000
+    # obj4: 7500
+    # obj5: 7500
+    # obj6: 8500
+    # obj7: 6000
+    # obj8: 7500
+    # obj9: 6500
+    # obj10: 8500 rerun
+    # obj11: 6000
+    # obj12: 8000 rerun
+    # obj13: 6500
+    # obj14: 8500
+    # obj15: 6000 rerun
+    # obj16: 7500
     
     state_params = {'b': b}
     init_state = AoMRShapeState(forward_model=forward_model, data=data, 
