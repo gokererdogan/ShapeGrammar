@@ -12,19 +12,19 @@ import numpy as np
 import pandas as pd
 
 if __name__ == '__main__':
-    data = np.load('data/haptic/16.npy')
-    params = {'b': 7500.0}
+    data = np.load('data/haptic/2.npy')
+    params = {'b': 9000.0}
     forward_model = HapticsForwardModel(body_fixed=False)
     #h_forward_model = HapticsForwardModel(body_fixed=False)
     
-    part1 = 'Bottom1'
-    part2 = 'Front1'
-    part3 = 'Top1'
+    part1 = 'Bottom0'
+    part2 = 'Front0'
+    part3 = 'Top0'
     part4 = 'Ear1'
     # wrong parts for this object
-    wpart1 = 'Bottom0'
-    wpart2 = 'Front0'
-    wpart3 = 'Top0'
+    wpart1 = 'Bottom1'
+    wpart2 = 'Front1'
+    wpart3 = 'Top1'
     wpart4 = 'Ear0'
     
     

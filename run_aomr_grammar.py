@@ -53,7 +53,7 @@ if __name__ == '__main__':
     # haptic condition
     # b parameter for object
     # obj1: 6000
-    # obj2: 8000?
+    # obj2: 9000
     # obj3: 6000
     # obj4: 7500
     # obj5: 7500
