@@ -191,7 +191,7 @@ class HapticsForwardModel():
 if __name__ == '__main__':
     # ---------------------------------------------------------
     # show image and view 3D model for an object
-    parts = ['Top0', 'Bottom0', 'Ear0', 'Front0']
+    parts = ['Top0', 'Bottom0', 'Ear1', 'Front1']
     positions = [actual_positions['Top0'], actual_positions['Bottom0'],
                actual_positions['Ear0'], actual_positions['Front0']]
     forward_model = HapticsForwardModel()

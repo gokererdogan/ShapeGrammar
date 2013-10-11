@@ -12,9 +12,9 @@ import numpy as np
 import pandas as pd
 
 if __name__ == '__main__':
-    data = np.load('data/haptic/2.npy')
+    data = np.load('data/visual/2.npy')
     params = {'b': 9000.0}
-    forward_model = HapticsForwardModel(body_fixed=False)
+    forward_model = VisionForwardModel()
     #h_forward_model = HapticsForwardModel(body_fixed=False)
     
     part1 = 'Bottom0'
@@ -78,6 +78,10 @@ if __name__ == '__main__':
     
     rrs2 = AoMRShapeState(forward_model=forward_model, data=data, ll_params=params, 
                           spatial_model=spatial_model2, initial_tree=t2)
+    
+    forward_model._view(rrs2)
+    
+    
     
     print rrs2
     print ('Prior: %g' % rrs2.prior)

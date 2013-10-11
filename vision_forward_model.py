@@ -31,7 +31,7 @@ class VisionForwardModel():
     camera_pos = [(.18, 0.0, 0.0), (0.0, -.30, 0.0), (0.0, 0.0, .30)] 
     camera_up = [(0, 0, 1), (0, 0, 1), (0, 1, 0)] # upward direction for each viewpoint
     render_size = (200, 200)
-    save_image_size = (600, 600)
+    save_image_size = (200, 200)
     def __init__(self, body_fixed=True):
         """
         body_fixed: if true Body part is automatically placed at origin
