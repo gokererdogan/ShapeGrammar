@@ -9,7 +9,6 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import numpy as np
 import scipy.misc
-import matplotlib.pyplot as pl
 
 # Part positions in actual objects (given in meters)
 actual_positions = {'Bottom0': [0.0, 0.0, -0.02280], 'Bottom1': [0.0, 0.0, -0.02280],
@@ -26,12 +25,12 @@ class VisionForwardModel():
     and uses VTK to render 3D scene to 2D image
     """
     parts = ['Body', 'Bottom0', 'Bottom1', 'Front0', 'Front1', 'Top0', 'Top1', 'Ear0', 'Ear1']
-    models_folder = '/home/goker/Dropbox/Code/Eclipse/AoMRShapeGrammar/models/'
+    models_folder = '/home/goker/Dropbox/Code/Python/AoMRShapeGrammar/models/'
     view_camera_pos = (.16, -.16, .16) #canonical view
     camera_pos = [(.18, 0.0, 0.0), (0.0, -.30, 0.0), (0.0, 0.0, .30)] 
     camera_up = [(0, 0, 1), (0, 0, 1), (0, 1, 0)] # upward direction for each viewpoint
-    render_size = (200, 200)
-    save_image_size = (200, 200)
+    render_size = (600, 600)
+    save_image_size = (600, 600)
     def __init__(self, body_fixed=True):
         """
         body_fixed: if true Body part is automatically placed at origin
@@ -44,10 +43,10 @@ class VisionForwardModel():
         self.vtkcamera = [] # one camera for each viewpoint
         for pos, up in zip(self.camera_pos, self.camera_up):
             camera = vtk.vtkCamera()
-            camera.SetPosition(pos);
-            camera.SetFocalPoint(0, 0, 0);
-            camera.SetViewUp(up);
-            self.vtkcamera.append(camera);
+            camera.SetPosition(pos)
+            camera.SetFocalPoint(0, 0, 0)
+            camera.SetViewUp(up)
+            self.vtkcamera.append(camera)
         
         self.vtkviewcamera = vtk.vtkCamera();
         self.vtkviewcamera.SetPosition(self.view_camera_pos);
@@ -85,11 +84,11 @@ class VisionForwardModel():
         """
         # called with ShapeState instance
         if len(args) == 1:
-            parts, positions = args[0].convert_to_parts_positions()
-        elif len(args) == 2: # called directly with parts and positions
-            parts, positions = args[0], args[1]
+            parts_positions = args[0].convert_to_parts_positions()
+        else: # called directly with parts and positions
+            parts_positions = args
         img_arr = np.zeros((self.viewpoint_count, self.render_size[0], self.render_size[1]))
-        self.__build_scene(parts, positions)
+        self._build_scene(*parts_positions)
         for i, camera in enumerate(self.vtkcamera):
             self.vtkrenderer.SetActiveCamera(camera);
             barr = self._render_window_to2D()
@@ -116,7 +115,7 @@ class VisionForwardModel():
         arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         return arr
     
-    def __build_scene(self, parts, positions):
+    def _build_scene(self, parts, positions):
         """
         Places parts to positions and adds them to scene
         Returns vtkRenderer
@@ -140,10 +139,10 @@ class VisionForwardModel():
         """
         # called with ShapeState instance
         if len(args) == 1:
-            parts, positions = args[0].convert_to_parts_positions()
-        elif len(args) == 2: # called directly with parts and positions
-            parts, positions = args[0], args[1]
-        self.__build_scene(parts, positions)
+            parts_positions = args[0].convert_to_parts_positions()
+        else: # called directly with parts and positions
+            parts_positions = args
+        self._build_scene(*parts_positions)
         self.vtkrenderer.SetActiveCamera(self.vtkviewcamera);
         self.vtkrender_window.Render()
         self.vtkrender_window_interactor.Start()
@@ -154,58 +153,82 @@ class VisionForwardModel():
         """
         # called with ShapeState instance
         if len(args) == 1:
-            parts, positions = args[0].convert_to_parts_positions()
-        elif len(args) == 2: # called directly with parts and positions
-            parts, positions = args[0], args[1]
-        img_arr = np.zeros((self.save_image_size[0], self.save_image_size[1]))
+            parts_positions = args[0].convert_to_parts_positions()
+        else: # called directly with parts and positions
+            parts_positions = args
+        # img_arr = np.zeros((self.save_image_size[0], self.save_image_size[1]))
         self.vtkrender_window.SetSize(self.save_image_size)
         self.vtkrenderer.SetActiveCamera(self.vtkviewcamera);
-        self.__build_scene(parts, positions)
+        self._build_scene(*parts_positions)
         barr = self._render_window_to2D()
         self.vtkrender_window.SetSize(self.render_size)
-        scipy.misc.imsave(filename, barr)
+        scipy.misc.imsave(filename, np.flipud(barr))
     
         
 if __name__ == '__main__':
-    #---------------------------------------------------------
-    # show image and view 3D model for an object
-#     parts = ['Top1', 'Bottom0', 'Ear0', 'Front0']
-#     positions = [actual_positions['Top1'], actual_positions['Bottom1'],
-#                  actual_positions['Ear0'], actual_positions['Front0']]
-#     forward_model = VisionForwardModel()
-#     
-#     forward_model._view(parts, positions)
-#     
-#     render = forward_model.render(parts, positions)
-#     pl.imshow(render[0,:,:], cmap='gray')
-#     pl.show()
-#     #scipy.misc.imsave('test.png', render[0,:,:])
-#     #np.save('2.npy', render)
-# ---------------------------------------------------------
-#     
-    # ---------------------------------------------------------
-    # generate data for each object
-    objects = [['Bottom0', 'Front0', 'Top0', 'Ear0'], ['Bottom0', 'Front0', 'Top0', 'Ear1'],
-               ['Bottom0', 'Front0', 'Top1', 'Ear0'], ['Bottom0', 'Front0', 'Top1', 'Ear1'],
-               ['Bottom0', 'Front1', 'Top0', 'Ear0'], ['Bottom0', 'Front1', 'Top0', 'Ear1'],
-               ['Bottom0', 'Front1', 'Top1', 'Ear0'], ['Bottom0', 'Front1', 'Top1', 'Ear1'],
-               ['Bottom1', 'Front0', 'Top0', 'Ear0'], ['Bottom1', 'Front0', 'Top0', 'Ear1'],
-               ['Bottom1', 'Front0', 'Top1', 'Ear0'], ['Bottom1', 'Front0', 'Top1', 'Ear1'],
-               ['Bottom1', 'Front1', 'Top0', 'Ear0'], ['Bottom1', 'Front1', 'Top0', 'Ear1'],
-               ['Bottom1', 'Front1', 'Top1', 'Ear0'], ['Bottom1', 'Front1', 'Top1', 'Ear1']]
-     
     forward_model = VisionForwardModel()
-     
+    parts = ['Bottom0', 'Front0', 'Top0', 'Ear0']
     positions = []
-    for i, object in enumerate(objects):
+    for part in parts:
+        positions.append(actual_positions[part])
+    forward_model.save_image('test_vfm.png', parts, positions)     
+    """
+    #---------------------------------------------------------
+    objects = [['Bottom0', 'Front0', 'Top0', 'Ear0'], ['Bottom0', 'Front0', 'Top0', 'Ear1'],
+                ['Bottom0', 'Front0', 'Top1', 'Ear0'], ['Bottom0', 'Front0', 'Top1', 'Ear1'],
+                ['Bottom0', 'Front1', 'Top0', 'Ear0'], ['Bottom0', 'Front1', 'Top0', 'Ear1'],
+                ['Bottom0', 'Front1', 'Top1', 'Ear0'], ['Bottom0', 'Front1', 'Top1', 'Ear1'],
+                ['Bottom1', 'Front0', 'Top0', 'Ear0'], ['Bottom1', 'Front0', 'Top0', 'Ear1'],
+                ['Bottom1', 'Front0', 'Top1', 'Ear0'], ['Bottom1', 'Front0', 'Top1', 'Ear1'],
+                ['Bottom1', 'Front1', 'Top0', 'Ear0'], ['Bottom1', 'Front1', 'Top0', 'Ear1'],
+                ['Bottom1', 'Front1', 'Top1', 'Ear0'], ['Bottom1', 'Front1', 'Top1', 'Ear1']]
+    
+    # rotate camera around vertical axis and generate images
+    positions = []
+    view_angle = 0
+    angle_step = 1
+    camera_distance = 0.17 * np.sqrt(2)
+    camera_z = .17
+
+    for object_id, object in enumerate(objects):
         del positions[:]
         for part in object:
             positions.append(actual_positions[part])
-             
-        render = forward_model.render(object, positions)
-        scipy.misc.imsave(repr(i+1) + '_1.png', render[0,:,:])
-        scipy.misc.imsave(repr(i+1) + '_2.png', render[1,:,:])
-        scipy.misc.imsave(repr(i+1) + '_3.png', render[2,:,:])
-        np.save(repr(i+1) + '.npy', render)
-     
+            
+        for i in range(360):
+            view_angle += angle_step
+            view_angle_radian = np.pi * (view_angle / 180.0)
+            camera_x = camera_distance * np.sin(view_angle_radian)
+            camera_y = camera_distance * np.cos(view_angle_radian)
+            forward_model.vtkviewcamera.SetPosition((camera_x, camera_y, camera_z))
+            #forward_model._view(parts, positions)
+            forward_model.save_image('./data/rotated_fmri/' + repr(object_id) + '_' + repr(i) + '.png', object, positions)
     # ---------------------------------------------------------
+
+    # ---------------------------------------------------------
+    # generate data for each object
+#     objects = [['Bottom0', 'Front0', 'Top0', 'Ear0'], ['Bottom0', 'Front0', 'Top0', 'Ear1'],
+#                ['Bottom0', 'Front0', 'Top1', 'Ear0'], ['Bottom0', 'Front0', 'Top1', 'Ear1'],
+#                ['Bottom0', 'Front1', 'Top0', 'Ear0'], ['Bottom0', 'Front1', 'Top0', 'Ear1'],
+#                ['Bottom0', 'Front1', 'Top1', 'Ear0'], ['Bottom0', 'Front1', 'Top1', 'Ear1'],
+#                ['Bottom1', 'Front0', 'Top0', 'Ear0'], ['Bottom1', 'Front0', 'Top0', 'Ear1'],
+#                ['Bottom1', 'Front0', 'Top1', 'Ear0'], ['Bottom1', 'Front0', 'Top1', 'Ear1'],
+#                ['Bottom1', 'Front1', 'Top0', 'Ear0'], ['Bottom1', 'Front1', 'Top0', 'Ear1'],
+#                ['Bottom1', 'Front1', 'Top1', 'Ear0'], ['Bottom1', 'Front1', 'Top1', 'Ear1']]
+#      
+#     forward_model = VisionForwardModel()
+#      
+#     positions = []
+#     for i, object in enumerate(objects):
+#         del positions[:]
+#         for part in object:
+#             positions.append(actual_positions[part])
+#              
+#         render = forward_model.render(object, positions)
+#         scipy.misc.imsave(repr(i+1) + '_1.png', render[0,:,:])
+#         scipy.misc.imsave(repr(i+1) + '_2.png', render[1,:,:])
+#         scipy.misc.imsave(repr(i+1) + '_3.png', render[2,:,:])
+#         np.save(repr(i+1) + '.npy', render)
+#      
+#     # ---------------------------------------------------------
+    """

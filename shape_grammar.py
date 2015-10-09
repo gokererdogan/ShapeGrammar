@@ -61,7 +61,7 @@ class ShapeGrammarState(PCFGTree):
     # some grammars (where branching factor is high) the tree grows
     # without bound
     MAXIMUM_DEPTH = 3
-    def __init__(self, grammar=None, forward_model=None, data=None, ll_params=None, spatial_model=None, initial_tree=None):
+    def __init__(self, grammar, forward_model=None, data=None, ll_params=None, spatial_model=None, initial_tree=None):
         """
         Initializes ShapeGrammarState
         grammar: Probabilistic context free shape grammar definition. PCFG instance.

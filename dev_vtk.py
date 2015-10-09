@@ -11,12 +11,15 @@ VTK test code
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import numpy as np
+import scipy.misc
+import matplotlib.pyplot as plt
 
 reader = vtk.vtkSTLReader()
 reader2 = vtk.vtkSTLReader()
 reader3 = vtk.vtkSTLReader()
 reader4 = vtk.vtkSTLReader()
 reader5 = vtk.vtkSTLReader()
+reader6 = vtk.vtkSTLReader()
 
 model_folder = './models/'
 filename = model_folder + "Body.stl"
@@ -39,12 +42,32 @@ filename = model_folder + "Ear1.stl"
 reader5.SetFileName(filename)
 polyDataOutput5 = reader5.GetOutput()
 
+filename = model_folder + "Cube.stl"
+reader6.SetFileName(filename)
+polyDataOutput6 = reader6.GetOutput()
+
 scale_tr = vtk.vtkTransform()
-scale_tr.Scale(5,5,5)
+scale_tr.Scale(2,2,2)
 scale_filter = vtk.vtkTransformFilter()
 scale_filter.SetInput(polyDataOutput5)
 scale_filter.SetTransform(scale_tr)
 polyDataOutput5_scaled = scale_filter.GetOutput()
+
+'''
+cube_source = vtk.vtkCubeSource()
+cube_output = cube_source.GetOutput()
+
+cube_normals = vtk.vtkPolyDataNormals()
+cube_normals.SetInput(cube_output)
+cube_normals.ComputeCellNormalsOn()
+cube_normals.ComputePointNormalsOff()
+cube_normals.Update()
+
+cube_mapper = vtk.vtkPolyDataMapper()
+# cube_mapper.SetInput(cube_output)
+cube_mapper.SetInput(cube_normals.GetOutput())
+print(cube_normals.GetOutput().GetCellData().GetNormals().GetTuple(0))
+'''
 
 # Create a mapper and actor
 mapper = vtk.vtkPolyDataMapper()
@@ -76,6 +99,19 @@ ear = vtk.vtkActor()
 ear.SetMapper(mapper5)
 ear.SetPosition(-.0237, 0, .0341)
 
+mapper6 = vtk.vtkPolyDataMapper()
+mapper6.SetInput(polyDataOutput6)
+cube = vtk.vtkActor()
+cube.SetMapper(mapper6)
+cube.SetPosition(.03, .03, .03)
+cube.SetScale(.03, .03, .03)
+
+'''
+cube = vtk.vtkActor()
+cube.SetMapper(cube_mapper)
+cube.SetPosition(.03, .03, .03)
+cube.SetScale(.03, .03, .03)
+'''
 camera = vtk.vtkCamera();
 camera.SetPosition(.16, -.16, .16);
 camera.SetFocalPoint(0, 0, 0);
@@ -128,6 +164,7 @@ renderer.AddActor(front)
 renderer.AddActor(bottom)
 renderer.AddActor(top)
 renderer.AddActor(ear)
+renderer.AddActor(cube)
 renderer.AddActor(actorx)
 renderer.AddActor(actory)
 renderer.AddActor(actorz)
@@ -136,27 +173,45 @@ renderer.AddActor(actorz)
 
 renderer.SetBackground(0, 0, 0) # Background color
 renderWindow.Render()
- 
+
+""" 
 vrml = vtk.vtkVRMLExporter()
 vrml.SetInput(renderWindow)
-vrml.SetFileName("/home/goker/Graspit/models/objects/test.wrl")
+vrml.SetFileName("~/Programs/Graspit/models/objects/test.wrl")
 vrml.Write()
 renderWindowInteractor.Start()
-
-#vtk_win_im = vtk.vtkWindowToImageFilter()
-#vtk_win_im.SetInput(renderWindow)
-#vtk_win_im.Update()
+"""
+vtk_win_im = vtk.vtkWindowToImageFilter()
+vtk_win_im.SetInput(renderWindow)
+vtk_win_im.Update()
 #
 ##writer = vtk.vtkPNGWriter()
 ##writer.SetFileName("screenshot.png")
 ##writer.SetInput(vtk_win_im.GetOutput())
 ##writer.Write()
 #
-#vtk_image = vtk_win_im.GetOutput()
-#
-#height, width, _ = vtk_image.GetDimensions()
-#vtk_array = vtk_image.GetPointData().GetScalars()
-#components = vtk_array.GetNumberOfComponents()
-#
-#arr = vtk_to_numpy(vtk_array).reshape(height, width, components)
-#print arr
+vtk_image = vtk_win_im.GetOutput()
+
+height, width, depth = vtk_image.GetDimensions()
+vtk_array = vtk_image.GetPointData().GetScalars()
+components = vtk_array.GetNumberOfComponents()
+
+arr = vtk_to_numpy(vtk_array)
+print arr.shape
+
+arr = arr.reshape((height, width, components))
+plt.imshow(np.flipud(arr))
+plt.show()
+
+arr = np.sum(arr, 2) / 3.0
+arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+plt.imshow(np.flipud(arr))
+plt.show()
+scipy.misc.imsave('test_vtk.png', np.flipud(arr))
+
+print height, width, depth
+print components
+print arr.shape
+print arr
+print np.min(arr)
+print np.max(arr)

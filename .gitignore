@@ -5,3 +5,7 @@
 *.png
 *.jpg
 *.gif
+# ignore SeeGrasp dataset
+models/SeeGrasp/
+# ignore data
+*.zip

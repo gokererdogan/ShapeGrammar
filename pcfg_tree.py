@@ -33,6 +33,8 @@ class ParseNode:
         self.rule = rule
     def __str__(self):
         return self.symbol + ' ' + repr(self.rule)
+    def __deepcopy(self):
+        return ParseNode(symbol=self.symbol, rule=self.rule)
 
 class PCFGTree:
     """
@@ -41,7 +43,7 @@ class PCFGTree:
     Reference: Goodman, N. D., Tenenbaum, J. B., Feldman, J., & Griffiths, T. L. (2008).
     A rational analysis of rule-based concept learning. Cognitive science, 32(1), 108-54.
     """
-    def __init__(self, grammar=None, data=None, ll_params=None, initial_tree=None):
+    def __init__(self, grammar, data=None, ll_params=None, initial_tree=None, maximum_depth=None):
         """
         grammar: PCFG object that defines the grammar
         data: Data, used for calculatng likelihood
@@ -51,10 +53,11 @@ class PCFGTree:
         self.data = data
         self.ll_params = ll_params
         # subclasses may define a maximum allowed tree depth
-        # if there are no such definitions, we set a very high
-        # limit
+        # if there are no such definitions, we set a limit here
         if hasattr(self, 'MAXIMUM_DEPTH') is False:
-            self.MAXIMUM_DEPTH = 999
+            self.MAXIMUM_DEPTH = maximum_depth
+            if self.MAXIMUM_DEPTH is None:
+                self.MAXIMUM_DEPTH = 99
         if initial_tree is None:
             self.tree = self._get_random_tree(start=self.grammar.start_symbol, max_depth=self.MAXIMUM_DEPTH)
         else:
@@ -93,7 +96,7 @@ class PCFGTree:
                 
                 # if tree exceeded the allowed depth, expand nonterminals
                 # using rules from terminating_rule_ids
-                if depth >= max_depth:
+                if depth >= (max_depth-1):
                     # choose from rules for nonterminal from terminating_rule_ids
                     rhsix = np.random.choice(self.grammar.terminating_rule_ids[symbol], size=1)
                 else:
@@ -221,7 +224,7 @@ class PCFGTree:
         prob = 1
         nonterminal_nr = [[self.tree[node].tag.symbol, self.tree[node].tag.rule] for node in self.tree.expand_tree(mode=Tree.WIDTH) 
                            if self.tree[node].tag.symbol in self.grammar.nonterminals]
-        
+
         for nt, rule in nonterminal_nr:
             prob = prob * self.grammar.prod_probabilities[nt][rule]
         

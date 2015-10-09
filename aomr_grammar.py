@@ -1,3 +1,4 @@
+# coding=utf-8
 '''
 Analysis of Multisensory Representations 
 Shape Grammar Implementation.
@@ -15,6 +16,7 @@ from treelib import Tree
 import numpy as np
 from copy import deepcopy
 import itertools as it
+import zss # for tree edit distance (https://github.com/timtadh/zhang-shasha)
 
 """
 Definition of AoMR Probabilistic Context Free Shape Grammar
@@ -272,6 +274,59 @@ class AoMRShapeState(ShapeGrammarState):
                 kern = kern * (self._kernel_count_corooted_subtrees(node1, other, node2) + 1)
             return kern
 
+    def kernel_tree_edit_distance(self, other):
+        """
+        Calculate tree edit distance between this and other state
+        Because tree edit distance is symmetric, we return the average of distances
+        for both ways.
+        We use the algorithm by 
+            Kaizhong Zhang and Dennis Shasha. 
+            Simple fast algorithms for the editing distance between trees 
+            and related problems. SIAM Journal of Computing, 18:1245–1262, 1989
+        We use the implementation from https://github.com/timtadh/zhang-shasha
+        """
+        t1 = self._kernel_tree_edit_distance_create_tree(self.tree.root)
+        t2 = other._kernel_tree_edit_distance_create_tree(other.tree.root)
+        return (zss.simple_distance(t1, t2) + zss.simple_distance(t2, t1)) / 2.0
+    
+    
+    def _kernel_tree_edit_distance_create_tree(self, current_node):
+        """
+        Convert the state to tree format required by zss library for calculating
+        tree edit distance
+        """
+        
+        def get_label(s, n):
+            """
+            Returns the sort string and label for a tree node
+            label is symbol in the node:voxel coordinates
+            sort string also containt the rule number used at that node.
+            sort string is used to sort the nodes of a tree into a canonical order.
+            """
+            voxel = s.spatial_model.voxels.get(n)
+            # if there are no voxels associated with a node, or it is a root node
+            if voxel is None or s.tree.nodes[n].bpointer is None:
+                voxel = [0,0,0]
+            voxel[1] = 0
+            sort_str = s.tree.nodes[n].tag.symbol + str(s.tree.nodes[n].tag.rule)
+            label = s.tree.nodes[n].tag.symbol
+            voxel = ''.join([str(i) for i in voxel])
+            sort_str = sort_str + ':' + voxel
+            label = label + ':' + voxel
+            return sort_str, label
+        
+        # get the sort strings for the children of this node
+        child_sort_strs = [get_label(self, child)[0] for child in self.tree.nodes[current_node].fpointer]
+        # get the permutation we need to get children into sorted order
+        sort_indices = [i[0] for i in sorted(enumerate(child_sort_strs), key=lambda x: x[1])]
+        # apply that permutation
+        children = [self.tree.nodes[current_node].fpointer[i] for i in sort_indices]
+        # call create_tree recursively on the children
+        t = zss.Node(get_label(self, current_node)[1], children=[self._kernel_tree_edit_distance_create_tree(cn) for cn in children])
+        return t
+
+
+
     def convert_to_parts_positions(self):
         """
         Converts the state representation to parts and positions
@@ -297,7 +352,6 @@ class AoMRShapeState(ShapeGrammarState):
             positions.append(self.spatial_model.positions[snode])
         
         return parts, positions
-    
     
     def add_remove_branch_proposal(self):
         """
