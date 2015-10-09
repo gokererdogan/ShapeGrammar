@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<world>
+	<robot>
+		<filename>models/robots/HumanHand/HumanHand16DOF.xml</filename>
+		<dofValues>0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 </dofValues>
+		<transform>
+			<fullTransform>(+0.270543 +0.653304 -0.270543 -0.653304)[+0 -160 -90]</fullTransform>
+		</transform>
+	</robot>
+	<camera>
+		<position>-559.944 +0 -109.641</position>
+		<orientation>+0 -0.802675 +0 +0.596417</orientation>
+		<focalDistance>+584.824</focalDistance>
+	</camera>
+</world>

@@ -1,0 +1,17 @@
+HISTORY
+LICENSE
+MANIFEST.in
+README.md
+setup.cfg
+setup.py
+examples/family_tree.py
+examples/folder_tree.py
+tests/__init__.py
+tests/test_treelib.py
+treelib/__init__.py
+treelib/node.py
+treelib/tree.py
+treelib.egg-info/PKG-INFO
+treelib.egg-info/SOURCES.txt
+treelib.egg-info/dependency_links.txt
+treelib.egg-info/top_level.txt
