@@ -221,7 +221,7 @@ class PCFGTree:
         Here we do not marginalize out production rule probabilities.
         This function is used for calculating acceptance probability.
         """
-        prob = 1
+        prob = 1.00
         nonterminal_nr = [[self.tree[node].tag.symbol, self.tree[node].tag.rule] for node in self.tree.expand_tree(mode=Tree.WIDTH) 
                            if self.tree[node].tag.symbol in self.grammar.nonterminals]
 
@@ -243,7 +243,7 @@ class PCFGTree:
         Multinomial beta function (normalization term for Dirichlet)
         mbeta(x,y,z) = gamma(x)*gamma(y)*gamma(z) / gamma(x+y+z)
         """
-        ret = 1
+        ret = 1.0
         for i in vect:
             ret = ret * sp.gamma(i)
         ret = ret / sp.gamma(np.sum(vect))
